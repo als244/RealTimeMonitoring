@@ -353,7 +353,7 @@ int main(int argc, char ** argv, char * envp[]){
 	// deafult args
 	int n_fields = 10;
 	char * field_ids_string = "203,254,1002,1003,1004,1005,1009,1010,1011,1012";
-	int sample_freq_millis = 100;
+	int sample_freq_millis = 1000;
 	int n_samples_per_buffer = 600;
 	// deafult for Della
 	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data";
