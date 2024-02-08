@@ -246,7 +246,7 @@ void cleanup_and_exit(int error_code, dcgmHandle_t * dcgmHandle, dcgmGpuGrp_t * 
 	}
 
 	if (dcgmHandle){
-		dcgmDisconnect(*dcgmHandle);
+		dcgmStopEmbedded(*dcgmHandle);
 	}
 
 	dcgmShutdown();
@@ -421,9 +421,8 @@ int main(int argc, char ** argv, char * envp[]){
 	}
 
 	dcgmHandle_t dcgmHandle;
-	// Collect data from local node with default 5555 port
-	const char * ip_address = "127.0.0.1:5555";
-	dcgm_ret = dcgmConnect(ip_address, &dcgmHandle);
+	// Start embedded process
+	dcgm_ret = dcgmStartEmbedded(DCGM_OPERATION_MODE_MANUAL, &dcgmHandle);
 
 	if (dcgm_ret != DCGM_ST_OK){
 		fprintf(stderr, "CONNECT ERROR, Exiting...\n");
@@ -558,9 +557,17 @@ int main(int argc, char ** argv, char * envp[]){
 		if (PRINT) {
 			printf("Time %ld: Collecting Values...\n", time.tv_sec);
 		}
+
+		// update fields (and wait for return)
+		dcgm_ret = dcgmUpdateAllFields(dcgmHandle, 1);
+		if (dcgm_ret != DCGM_ST_OK){
+			fprintf(stderr, "UPDATE ALL FIELDS ERROR, Exiting...\n");
+                        cleanup_and_exit(dcgm_ret, &dcgmHandle, &groupId, &fieldGroupId);
+		}
+
+		// retrieve values
 		dcgm_ret = dcgmGetLatestValues(dcgmHandle, groupId, fieldGroupId, &copy_field_values_function, (void *) samples_buffer);
 		
-
 		if (dcgm_ret != DCGM_ST_OK){
 			fprintf(stderr, "GET LATEST VALUES ERROR, Exiting...\n");
 			cleanup_and_exit(dcgm_ret, &dcgmHandle, &groupId, &fieldGroupId);
