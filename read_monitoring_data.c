@@ -21,7 +21,8 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
 
 
 	// open output file that data will be dumped to
-	FILE * output_file = fopen(output_filepath, "w");
+	// make sure append because ALL hosts will append to this file
+	FILE * output_file = fopen(output_filepath, "a");
 	if (output_file == NULL){
 		fprintf(stderr, "Could not open output_file: %s. Returning...\n", output_filepath);
 		return -1;
@@ -60,7 +61,7 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
     struct timespec time;
     void * fieldValues;
 
-    // hardcoded, from "gpu_monitoring.c"
+    // hardcoded, from "monitoring.c"
     int field_size_bytes = 8;
 
     while ((read = getline(&line, &len, timestamps_file)) != -1) {
@@ -72,6 +73,8 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
     	asprintf(&filename, "%s/%s/%li.meta", data_dir_path, hostname, timestamp);
 
     	metadata_file = fopen(filename, "rb");
+	// if buffers were flushed and timestamp file not refreshed...
+	// expected
     	if (metadata_file == NULL){
     		fprintf(stderr, "Could not open metadata file: %s. Continuing...\n", filename);
     		free(filename);
@@ -107,7 +110,7 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
     	}
     	free(filename);
 
-    	long time_sec;
+    	long time_ms;
     	unsigned short fieldId, fieldType;
     	int ind;
 
@@ -116,12 +119,15 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
 
     	for (int i = 0; i < n_samples; i++){
     		fread(&time, sizeof(struct timespec), 1, data_file);
-    		time_sec = time.tv_sec;
+    		time_ms = time.tv_sec * 1e3 + time.tv_nsec / 1e6;
 
     		// CPU memory and util 
     		fread(&(cpu_data -> free_mem), sizeof(unsigned long), 1, data_file);
     		fread(&(cpu_data -> util_pct), sizeof(double), 1, data_file);
-    		fprintf(output_file, "cpu,%s,%li,%lu,%f\n", hostname, time_sec, cpu_data -> free_mem, cpu_data -> util_pct);
+		// consistent format with gpu fields
+		// assign gpuId to be -1 for CPU and declare fieldId=0 for cpuFreeMem and 1 for cpuUtilPct
+    		fprintf(output_file, "%s,%li,-1,0,%lu\n", hostname, time_ms, cpu_data -> free_mem);
+		fprintf(output_file, "%s,%li,-1,1,%f\n",hostname,time_ms, cpu_data -> util_pct);
 
 
     		// GPU Stuff
@@ -136,13 +142,13 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
 					fieldType = fieldTypes[fieldNum];
 					switch (fieldType) {
 						case DCGM_FT_DOUBLE:
-							fprintf(output_file, "%s,%li,%d,%u,%f\n", hostname, time_sec, gpuId, fieldId, ((double *) fieldValues)[ind]);
+							fprintf(output_file, "%s,%li,%d,%u,%f\n", hostname, time_ms, gpuId, fieldId, ((double *) fieldValues)[ind]);
 							break;
 						case DCGM_FT_INT64:
-							fprintf(output_file, "%s,%li,%d,%u,%li\n", hostname, time_sec, gpuId, fieldId, ((long *) fieldValues)[ind]);
+							fprintf(output_file, "%s,%li,%d,%u,%li\n", hostname, time_ms, gpuId, fieldId, ((long *) fieldValues)[ind]);
 							break;
 						case DCGM_FT_TIMESTAMP:
-							fprintf(output_file, "%s,%li,%d,%u,%li\n", hostname, time_sec, gpuId, fieldId, ((long *) fieldValues)[ind]);
+							fprintf(output_file, "%s,%li,%d,%u,%li\n", hostname, time_ms, gpuId, fieldId, ((long *) fieldValues)[ind]);
 							break;
 						default:
 							break;
@@ -176,11 +182,15 @@ int collect_data_from_host(char * data_dir_path, char * hostname, char * output_
 
 int main(int argc, char ** argv, char * envp[]){
 
-	char * data_dir = argv[1];
+    char * data_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data";
+    
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time);
 
-	char * output_filepath = argv[2];
+    char * output_filepath;   
+    asprintf(&output_filepath, "/scratch/gpfs/as1669/ClusterMonitoring/aggregatedData/%ld.csv", time.tv_sec);
 
-	DIR *dr = opendir(data_dir); 
+    DIR *dr = opendir(data_dir); 
   
     if (dr == NULL)  // opendir returns NULL if couldn't open directory 
     { 
@@ -202,9 +212,12 @@ int main(int argc, char ** argv, char * envp[]){
         // assume that there will be subdirectories with hostnames
         if (host_dirs -> d_type == DT_DIR){
         	host_dir_path = host_dirs -> d_name;
+		printf("Collecting data from host: %s\n", host_dir_path);
         	collect_data_from_host(data_dir, host_dir_path, output_filepath);
         }
     }
+
+    printf("Finished writing to: %s\n", output_filepath);
   
     closedir(dr);     
     return 0; 
