@@ -19,18 +19,8 @@ def main(args):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
     
-    ## see if Jobs table already exists, if not we have to create one
-    sql_query = """SELECT name FROM sqlite_master  
-                    WHERE type='table';"""
-    cur.execute(sql_query)
-    
-    all_tables = cur.fetchall()
-    
-    is_created = ('Jobs',) in all_tables
-
-    if not is_created:
-
-        table_creation = """ CREATE TABLE Jobs (
+    ## create table if not exists
+    table_creation = """ CREATE TABLE IF NOT EXISTS Jobs (
                              job_id INT,
                              user_id VARCHAR(10),
                              group_id VARCHAR(20),
@@ -50,8 +40,8 @@ def main(args):
                              PRIMARY KEY (job_id)
                              ); """
 
-        cur.execute(table_creation)
-        con.commit()
+    cur.execute(table_creation)
+    con.commit()
 
 
     ### creating file to dump sacct to 

@@ -7,9 +7,6 @@ SQLITE3_INCLUDE_PATH = /home/as1669/local/include
 all: monitor monitor_with_db readMonitoringData
 
 monitor: monitoring.c
-	${CC} ${CFLAGS} -o $@ $^ -ldcgm
-
-monitor_with_db: monitoring_with_db.c
 	${CC} ${CFLAGS} -o $@ $^ -I${SQLITE3_INCLUDE_PATH} -L${SQLITE3_LIBRARY_PATH} -lsqlite3 -ldcgm -lm
 
 readMonitoringData: read_monitoring_data.c
