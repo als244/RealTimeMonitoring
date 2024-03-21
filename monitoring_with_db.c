@@ -106,7 +106,6 @@ int copy_field_values_function(unsigned int gpuId, dcgmFieldValue_v1 * values, i
 	Sample * cur_sample = &((samples_buffer -> samples)[n_samples]);
 	unsigned short * field_ids = samples_buffer -> field_ids;
 	int n_fields = samples_buffer -> n_fields;
-	int n_devices = samples_buffer -> n_devices;
 	// hardcoded but could use the fieldTypes
 	int field_size_bytes = 8;
 	unsigned short fieldId, fieldType;
@@ -136,7 +135,7 @@ void insert_row_to_db(sqlite3 * db, int timestamp_ms, int device_id, int field_i
 
 	char * insert_statement;
 
-	asprintf(&insert_statement, "INSERT INTO Data (timestamp_ms, device_id,field_id,value) VALUES (%d, %d, %d, %d);");
+	asprintf(&insert_statement, "INSERT INTO Data (timestamp_ms, device_id,field_id,value) VALUES (%d, %d, %d, %d);", timestamp_ms, device_id, field_id, value);
 
 	char *sqlErr;
 
@@ -189,26 +188,29 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 
 		for (int gpuId = 0; gpuId < n_devices; gpuId++){
     		for (int fieldNum = 0; fieldNum < n_fields; fieldNum++){
-    				ind = gpuId * n_fields + fieldNum;
-    				fieldId = fieldIds[fieldNum];
-					fieldType = fieldTypes[fieldNum];
-					switch (fieldType) {
-						case DCGM_FT_DOUBLE:
-							// all the doubles are 0-1, we instead represent as int 0-100
-							val = round(((double *) fieldValues)[ind] * 100);
-							break;
-						case DCGM_FT_INT64:
-							val =  (int) (((long *) fieldValues)[ind]);
-							break;
-						case DCGM_FT_TIMESTAMP:
-							val = (int) (((long *) fieldValues)[ind]);
-							break;
-						default:
-							val = 0;
-							break;
-    				}
-    				insert_row_to_db(db, time_ms, gpuId, fieldId, val);
+    			ind = gpuId * n_fields + fieldNum;
+    			fieldId = fieldIds[fieldNum];
+				fieldType = fieldTypes[fieldNum];
+				switch (fieldType) {
+					case DCGM_FT_DOUBLE:
+						// all the doubles are fractions 0-1, we instead represent as int 0-100
+						val = (int) round(((double *) fieldValues)[ind] * 100);
+						break;
+					case DCGM_FT_INT64:
+						val =  (int) (((long *) fieldValues)[ind]);
+						break;
+					case DCGM_FT_TIMESTAMP:
+						val = (int) (((long *) fieldValues)[ind]);
+						break;
+					default:
+						val = 0;
+						break;
+    			}
+    			insert_row_to_db(db, time_ms, gpuId, fieldId, val);
+    		}
+    	}
 	}
+	
 	// reset samples
 	struct timespec time;
 	for (int i = 0; i < n_samples; i++){
@@ -384,18 +386,6 @@ int main(int argc, char ** argv, char * envp[]){
 		exit(1);
 	}
 
-	struct stat st = {0};
-
-	char * true_output_dir;
-	asprintf(&true_output_dir, "%s/%s", output_dir, hostbuffer);
-
-	if (stat(true_output_dir, &st) == -1){
-		if (mkdir(true_output_dir, 0755) == -1){
-			fprintf(stderr, "Could not make directory with hostname, exiting...\n");
-			exit(1);
-		}
-	}
-
 	//printf("True directory: %s\n", true_output_dir);
 
 	// convert the fieldId comma separted string to array
@@ -544,7 +534,7 @@ int main(int argc, char ** argv, char * envp[]){
 	char * create_table_cmd = "CREATE TABLE IF NOT EXISTS Data (timestamp_ms INT, device_id INT,field_id INT,value INT);";
 	char * sqlErr;
 
-	sql_ret = sqlite3_exec(db, create_table_cmd, NULL, NULL, sqlErr);
+	sql_ret = sqlite3_exec(db, create_table_cmd, NULL, NULL, &sqlErr);
 	if (sql_ret != SQLITE_OK){
 		fprintf(stderr, "SQL Error: %s\n", sqlErr);
 		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
@@ -589,7 +579,7 @@ int main(int argc, char ** argv, char * envp[]){
 		
 		if (PRINT) {
 			if (cpu_util != NULL){
-				printf("CPU Stats. Util: %.3f%, Free Mem: %lu\n\nGPU Stats:\n", cur_sample -> cpu_util -> util_pct, cur_sample -> cpu_util -> free_mem);
+				printf("CPU Stats. Util: %d, Free Mem: %d\n\nGPU Stats:\n", (int) round(cur_sample -> cpu_util -> util_pct), (int) (cur_sample -> cpu_util -> free_mem));
 			}
 			else{
 				printf("Could not retrieve CPU stats\n");
@@ -607,13 +597,13 @@ int main(int argc, char ** argv, char * envp[]){
 					fieldType = fieldTypes[fieldNum];
 					switch (fieldType) {
 						case DCGM_FT_DOUBLE:
-							printf("GPU ID: %d, Field ID: %u, Value: %f\n", gpuId, fieldId, ((double *) field_values)[ind]);
+							printf("GPU ID: %d, Field ID: %u, Value: %d\n", gpuId, fieldId, (int) round((((double *) field_values)[ind] * 100)));
 							break;
 						case DCGM_FT_INT64:
-							printf("GPU ID: %d, Field ID: %u, Value: %li\n", gpuId, fieldId, ((long *) field_values)[ind]);
+							printf("GPU ID: %d, Field ID: %u, Value: %d\n", gpuId, fieldId, (int) (((long *) field_values)[ind]));
 							break;
 						case DCGM_FT_TIMESTAMP:
-							printf("GPU ID: %d, Field ID: %u, Value: %li\n", gpuId, fieldId, ((long *) field_values)[ind]);
+							printf("GPU ID: %d, Field ID: %u, Value: %d\n", gpuId, fieldId, (int) (((long *) field_values)[ind]));
 							break;
 						default:
 							printf("Error in Field Value Types...");
@@ -631,7 +621,7 @@ int main(int argc, char ** argv, char * envp[]){
 		samples_buffer -> n_samples = n_samples;
 		// SAVING VALUES
 		if (n_samples == n_samples_per_buffer){
-			err = dump_samples_buffer(samples_buffer, true_output_dir);
+			err = dump_samples_buffer(samples_buffer, db);
 			if (err == -1){
 				fprintf(stderr, "Error dumping buffer to file. Skipping this dump and collecting new data...\n");
 			}
@@ -642,10 +632,7 @@ int main(int argc, char ** argv, char * envp[]){
 
 	// shouldn't reach this point because inifinte loop collecting data
 	// free's field value memory in this funciton
-	dump_samples_buffer(samples_buffer, true_output_dir);
-	
-	// string allocated by asprintf
-	free(true_output_dir);
+	dump_samples_buffer(samples_buffer, db);
 
 	// destroy the buffer
 	free(fieldIds);
