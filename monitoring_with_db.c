@@ -12,9 +12,14 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <math.h>
+
+#include <sqlite3.h>
+
 #include "dcgm_agent.h"
 #include "dcgm_fields.h"
 #include "dcgm_structs.h"
+
 
 #include "monitoring.h"
 
@@ -127,13 +132,26 @@ int copy_field_values_function(unsigned int gpuId, dcgmFieldValue_v1 * values, i
 	return 0;
 }
 
-int dump_samples_buffer(Samples_Buffer * samples_buffer, char * dir){
+void insert_row_to_db(sqlite3 * db, int timestamp_ms, int device_id, int field_id, int value){
 
-	long first_time = (samples_buffer -> samples)[0].time.tv_sec;
+	char * insert_statement;
 
-	int n_cpu = samples_buffer -> n_cpu;
-	int clk_tck = samples_buffer -> clk_tck;
+	asprintf(&insert_statement, "INSERT INTO Data (timestamp_ms, device_id,field_id,value) VALUES (%d, %d, %d, %d);");
+
+	char *sqlErr;
+
+	int sql_ret = sqlite3_exec(db, insert_statement, NULL, NULL, &sqlErr);
 	
+	if (sql_ret != SQLITE_OK){
+		fprintf(stderr, "SQL error: %s\n", sqlErr);
+		sqlite3_free(sqlErr);
+	}
+	return;
+}
+
+
+int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
+
 	int n_fields = samples_buffer -> n_fields;
 	int n_devices = samples_buffer -> n_devices;
 
@@ -141,84 +159,56 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, char * dir){
 	int field_size_bytes = 8;
 
 	int n_samples = samples_buffer -> n_samples;
+	unsigned short * fieldIds = samples_buffer -> field_ids;
+	unsigned short * fieldTypes = samples_buffer -> field_types;
 
 	Sample * samples = samples_buffer -> samples;
 
-	int n_wrote, print_ret;
-	char * filepath = NULL;
-	FILE * fp;
-
-	// Saving timestamp to file which lists timestamps that have associated buffers
-
-	print_ret = asprintf(&filepath, "%s/timestamps.txt", dir);
-	fp = fopen(filepath, "a");
-
-	if (fp == NULL){
-		fprintf(stderr, "Could not open timestamps_file. Returning...\n");
-		return -1;
-	}
-
-	fprintf(fp, "%li\n", first_time);
-	fflush(fp);
-	fclose(fp);
-	free(filepath);
-
-
-	// Saving Metadata
-
-	asprintf(&filepath, "%s/%li.meta", dir, first_time);
-
-	fp = fopen(filepath, "wb");
-	if (fp == NULL){
-		fprintf(stderr, "Could not open file for dumping sample buffer metadata. Returning...\n");
-		return -1;
-	}
-
-	fwrite(&n_cpu, sizeof(int), 1, fp);
-	fwrite(&clk_tck, sizeof(int), 1, fp);
-	fwrite(&n_devices, sizeof(int), 1, fp);
-	fwrite(&n_fields, sizeof(int), 1, fp);
-	fwrite(&n_samples, sizeof(int), 1, fp);
-	fwrite(samples_buffer -> field_types, sizeof(unsigned short), n_fields, fp);
-	fwrite(samples_buffer -> field_ids, sizeof(unsigned short), n_fields, fp);
-
-	fflush(fp);
-	fclose(fp);
-	free(filepath);
-
-
 	// Saving Data
-	
-	print_ret = asprintf(&filepath, "%s/%li.buffer", dir, first_time);
-
-	fp = fopen(filepath, "wb");
-	if (fp == NULL){
-		fprintf(stderr, "Could not open file for dumping sample buffer. Returning...\n");
-		return -1;
-	}
-
 	Proc_Data * cpu_data;
+	void * fieldValues;
 	Sample data;
 
-	// write timestamp and field values for every sample
+	unsigned short fieldId, fieldType;
+	long ind, time_ms;
+
+	int val;
+	// insert timestamp and field values for every sample
 	for (int i = 0; i < n_samples; i++){
 
 		data = samples[i];
-		fwrite(&(data.time), sizeof(struct timespec), 1, fp);
+		time_ms = data.time.tv_sec * 1e3 + data.time.tv_nsec / 1e6;
 
 		// CPU dump
 		cpu_data = data.cpu_util;
-		fwrite(&(cpu_data -> free_mem), sizeof(unsigned long), 1, fp);
-		fwrite(&(cpu_data -> util_pct), sizeof(double), 1, fp);
+		insert_row_to_db(db, time_ms, -1, 0, cpu_data -> free_mem);
+		insert_row_to_db(db, time_ms, -1, 1, round(cpu_data -> util_pct));
 		
-		// GPU field value dump
-		fwrite(data.field_values, 1, n_fields * n_devices * field_size_bytes, fp);
+		// GPU Field dump
+		fieldValues = data.field_values;
+
+		for (int gpuId = 0; gpuId < n_devices; gpuId++){
+    		for (int fieldNum = 0; fieldNum < n_fields; fieldNum++){
+    				ind = gpuId * n_fields + fieldNum;
+    				fieldId = fieldIds[fieldNum];
+					fieldType = fieldTypes[fieldNum];
+					switch (fieldType) {
+						case DCGM_FT_DOUBLE:
+							// all the doubles are 0-1, we instead represent as int 0-100
+							val = round(((double *) fieldValues)[ind] * 100);
+							break;
+						case DCGM_FT_INT64:
+							val =  (int) (((long *) fieldValues)[ind]);
+							break;
+						case DCGM_FT_TIMESTAMP:
+							val = (int) (((long *) fieldValues)[ind]);
+							break;
+						default:
+							val = 0;
+							break;
+    				}
+    				insert_row_to_db(db, time_ms, gpuId, fieldId, val);
 	}
-
-	fflush(fp);
-	fclose(fp);
-	free(filepath);
-
 	// reset samples
 	struct timespec time;
 	for (int i = 0; i < n_samples; i++){
@@ -233,7 +223,7 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, char * dir){
 void cleanup_and_exit(int error_code, dcgmHandle_t * dcgmHandle, dcgmGpuGrp_t * groupId, dcgmFieldGrp_t * fieldGroupId){
 
 	// if cleanup was caused by error
-	if (error_code != DCGM_ST_OK){
+	if ((error_code != -1) && (error_code != DCGM_ST_OK)){
 		printf("ERROR: %s\nFreeing Structs And Exiting...\n", errorString(error_code));
 	}
 
@@ -356,7 +346,8 @@ int main(int argc, char ** argv, char * envp[]){
 	int sample_freq_millis = 100;
 	int n_samples_per_buffer = 6000;
 	// deafult for Della
-	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data";
+	// location where the per-host databases are 
+	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/node_details";
 
 	
 
@@ -469,7 +460,7 @@ int main(int argc, char ** argv, char * envp[]){
 	/* DEFAULT FIELDS BEING COLLECTED */
 
 	/* 203: COASE GPU UTIL
-	 * 254: % Used Frame Buffer in MB
+	 * 254: % Used Frame Buffer
 	 * 1002: SM_ACTIVE: Ratio of cycles at least 1 warp assigned to any SM
 	 * 1003: SM_OCCUPANCY: Ratio of warps resident to theoretical maximum warps per cycle
 	 * 1004: PIPE_TENSOR_ACTIVE: ratio of cycles any tensor pipe is active
@@ -536,6 +527,29 @@ int main(int argc, char ** argv, char * envp[]){
 
 	Proc_Data * cpu_util;
 	Proc_Data * prev_proc_data = NULL;
+
+	sqlite3 *db;
+
+	char * db_filename;
+	asprintf(&db_filename, "%s/%s.db", output_dir, hostbuffer);
+	
+	int sql_ret;
+	sql_ret = sqlite3_open(db_filename, &db);
+
+	if (sql_ret != SQLITE_OK){
+		fprintf(stderr, "COULD NOT OPEN SQL DB, Exiting...\n");
+		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
+	}
+
+	char * create_table_cmd = "CREATE TABLE IF NOT EXISTS Data (timestamp_ms INT, device_id INT,field_id INT,value INT);";
+	char * sqlErr;
+
+	sql_ret = sqlite3_exec(db, create_table_cmd, NULL, NULL, sqlErr);
+	if (sql_ret != SQLITE_OK){
+		fprintf(stderr, "SQL Error: %s\n", sqlErr);
+		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
+	}
+
 
 	// For now, run indefinitely 
 	while (true){
