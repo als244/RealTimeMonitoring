@@ -45,15 +45,9 @@ def main(args):
 
 
     ### creating file to dump sacct to 
-    raw_data_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/job_details/raw_sacct_data/"
-    
-    isExist = os.path.exists(raw_data_dir + hostname)
-    if not isExist:
-        os.makedirs(raw_data_dir + hostname)
-    
     time = round(time.time())
-
-    sacct_file_name = raw_data_dir + hostname + "/" + time + ".out"
+    raw_data_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/job_details/raw_sacct_data/"
+    sacct_file_name = raw_data_dir + hostname + "_" + time + ".out"
 
     ### call slurm sacct command to retrieve data
     ### assume this will be called 1once per hour!
@@ -137,7 +131,9 @@ def main(args):
     ## close the db
     cur.close()
     con.close()
-
+    
+    ## delete file used for sacct data
+    os.remove(sacct_file_name)
 
 
 if __name__ == "__main__":
