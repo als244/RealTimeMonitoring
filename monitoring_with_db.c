@@ -141,6 +141,8 @@ void insert_row_to_db(sqlite3 * db, int timestamp_ms, int device_id, int field_i
 
 	int sql_ret = sqlite3_exec(db, insert_statement, NULL, NULL, &sqlErr);
 	
+	free(insert_statement);
+
 	if (sql_ret != SQLITE_OK){
 		fprintf(stderr, "SQL error: %s\n", sqlErr);
 		sqlite3_free(sqlErr);
@@ -525,6 +527,7 @@ int main(int argc, char ** argv, char * envp[]){
 	
 	int sql_ret;
 	sql_ret = sqlite3_open(db_filename, &db);
+	free(db_filename);
 
 	if (sql_ret != SQLITE_OK){
 		fprintf(stderr, "COULD NOT OPEN SQL DB, Exiting...\n");
