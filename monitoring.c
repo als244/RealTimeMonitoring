@@ -572,7 +572,7 @@ int main(int argc, char ** argv, char * envp[]){
                 // IF SO, CALL PYTHON SCRIPT TO COLLECT INFO FROM SACCT AND DUMP TO DIFFERENT DB
                 time_sec = time.tv_sec;
                 if ((time_sec - prev_job_collection_time) > (61 * 60)){
-                        system("python /home/as1669/RealTimeMonitoring/scripts/dump_job_details.py");
+                        system("python /home/as1669/RealTimeMonitoring/scripts/dump_job_details.py &");
                         prev_job_collection_time = time_sec;
                 }
 
