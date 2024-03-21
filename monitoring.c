@@ -175,6 +175,13 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 
 	long val;
 	// insert timestamp and field values for every sample
+	struct timespec start, end;
+	clock_gettime(CLOCK_REALTIME, &start);
+
+	// EXPLICITY START DB TRANSACTION SO IT DOESN't AUTO COMMIT
+	sqlite3_exec(db, "BEGIN", 0, 0, 0);	
+	
+
 	for (int i = 0; i < n_samples; i++){
 
 		data = samples[i];
@@ -213,6 +220,16 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
     	}
 	}
 	
+	// EXPLICITY COMMIT TRANSACTION
+	sqlite3_exec(db, "COMMIT", 0, 0, 0);
+
+	clock_gettime(CLOCK_REALTIME, &end);
+
+	long elapsed_time_ns = ((end.tv_sec - start.tv_sec) * 1e9) + (end.tv_nsec - start.tv_nsec);
+	printf("Elasped time of dump: %lu", elapsed_time_ns);
+
+
+
 	// reset samples
 	struct timespec time;
 	for (int i = 0; i < n_samples; i++){
@@ -523,7 +540,7 @@ int main(int argc, char ** argv, char * envp[]){
 	sqlite3 *db;
 
 	char * db_filename;
-	asprintf(&db_filename, "%s/%s.db", output_dir, hostbuffer);
+	asprintf(&db_filename, "%s/%s_metrics.db", output_dir, hostbuffer);
 	
 	int sql_ret;
 	sql_ret = sqlite3_open(db_filename, &db);
