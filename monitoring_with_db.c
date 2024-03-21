@@ -542,12 +542,23 @@ int main(int argc, char ** argv, char * envp[]){
 		fprintf(stderr, "SQL Error: %s\n", sqlErr);
 		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
 	}
-
+	
+	long time_sec;
+        long prev_job_collection_time = 0;
 
 	// For now, run indefinitely 
 	while (true){
 		n_samples = samples_buffer -> n_samples;
 		clock_gettime(CLOCK_REALTIME, &time);
+
+		// CHECK TO SEE IF IT HAS BEEN AN HOUR (61 min) SINCE LAST JOB STATUS QUERY
+                // IF SO, CALL PYTHON SCRIPT TO COLLECT INFO FROM SACCT AND DUMP TO DIFFERENT DB
+                time_sec = time.tv_sec;
+                if ((time_sec - prev_job_collection_time) > (61 * 60)){
+                        system("python /home/as1669/RealTimeMonitoring/scripts/dump_job_details.py");
+                        prev_job_collection_time = time_sec;
+                }
+
 		cur_sample = &((samples_buffer -> samples)[n_samples]);
 		cur_sample -> time = time;
 		
