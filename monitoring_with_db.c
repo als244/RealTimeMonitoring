@@ -351,7 +351,7 @@ int main(int argc, char ** argv, char * envp[]){
 	int n_samples_per_buffer = 6000;
 	// deafult for Della
 	// location where the per-host databases are 
-	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/node_details";
+	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/node_utilizations";
 
 	
 
