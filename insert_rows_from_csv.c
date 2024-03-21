@@ -8,7 +8,7 @@
 void insert_row_to_db(sqlite3 * db, char * hostname, long timestamp_ms, long device_id, long field_id, long value){
 
 	char * insert_statement;
-
+	
 	asprintf(&insert_statement, "INSERT INTO Data (hostname,timestamp_ms,device_id,field_id,value) VALUES ('%s', %ld, %ld, %ld, %ld);", hostname, timestamp_ms, device_id, field_id, value);
 
 	char *sqlErr;
@@ -136,6 +136,21 @@ int main(int argc, char *argv[]){
     				value = (long) round(value_raw);
     				break;
     		}
+
+		// ROUGH ERROR HANDLING IN CASE NOT CAUGHT BY SCANF
+        	if ((timestamp_ms < 1700000000000) || (timestamp_ms > 1800000000000)){
+                	total_lines += 1;
+			continue;
+        	}
+        	if ((device_id < -1) || (device_id > 32)){
+			total_lines += 1;
+                	continue;
+        	}
+        	if ((field_id < 0) || (field_id > 1020)){
+                	total_lines += 1;
+			continue;
+        	}
+
 
 		// PERFORM DB INSERTION!
     		insert_row_to_db(db, hostname, timestamp_ms, device_id, field_id, value);
