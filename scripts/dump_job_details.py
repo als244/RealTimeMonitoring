@@ -60,9 +60,9 @@ def main(args):
     if not isExist:
         os.makedirs(raw_data_dir + hostname)
     
-    date_str = date.today().strftime("%Y%m%d")
+    time = round(time.time())
 
-    sacct_file_name = raw_data_dir + hostname + "/" + date_str + ".out"
+    sacct_file_name = raw_data_dir + hostname + "/" + time + ".out"
 
     ### call slurm sacct command to retrieve data
     ### assume this will be called 1once per hour!
