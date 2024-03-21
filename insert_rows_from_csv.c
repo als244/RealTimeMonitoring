@@ -9,10 +9,9 @@ void insert_row_to_db(sqlite3 * db, char * hostname, long timestamp_ms, long dev
 
 	char * insert_statement;
 
-	asprintf(&insert_statement, "INSERT INTO Data (hostname, timestamp_ms,device_id,field_id,value) VALUES (%s, %ld, %ld, %ld, %ld);", hostname, timestamp_ms, device_id, field_id, value);
+	asprintf(&insert_statement, "INSERT INTO Data (hostname,timestamp_ms,device_id,field_id,value) VALUES ('%s', %ld, %ld, %ld, %ld);", hostname, timestamp_ms, device_id, field_id, value);
 
 	char *sqlErr;
-
 	int sql_ret = sqlite3_exec(db, insert_statement, NULL, NULL, &sqlErr);
 	
 	free(insert_statement);
@@ -96,7 +95,7 @@ int main(int argc, char *argv[]){
 
         	n_success = sscanf(line_buffer, "%[^,],%ld,%ld,%ld,%lg", hostname, &timestamp_ms, &device_id, &field_id, &value_raw);
     		
-		/*
+		/*	
 		printf("N success: %d\n", n_success);
 		printf("Hostname: %s\n", hostname);
 		printf("Timestamp ms: %ld\n", timestamp_ms);
@@ -138,8 +137,10 @@ int main(int argc, char *argv[]){
     				break;
     		}
 
+		// PERFORM DB INSERTION!
     		insert_row_to_db(db, hostname, timestamp_ms, device_id, field_id, value);
-    		db_rows += 1;
+    		
+		db_rows += 1;
     		total_lines += 1;
 
     		if ((total_lines % 100000) == 0){
