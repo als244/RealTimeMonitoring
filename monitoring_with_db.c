@@ -131,11 +131,11 @@ int copy_field_values_function(unsigned int gpuId, dcgmFieldValue_v1 * values, i
 	return 0;
 }
 
-void insert_row_to_db(sqlite3 * db, int timestamp_ms, int device_id, int field_id, int value){
+void insert_row_to_db(sqlite3 * db, long timestamp_ms, long device_id, long field_id, long value){
 
 	char * insert_statement;
 
-	asprintf(&insert_statement, "INSERT INTO Data (timestamp_ms, device_id,field_id,value) VALUES (%d, %d, %d, %d);", timestamp_ms, device_id, field_id, value);
+	asprintf(&insert_statement, "INSERT INTO Data (timestamp_ms,device_id,field_id,value) VALUES (%ld, %ld, %ld, %ld);", timestamp_ms, device_id, field_id, value);
 
 	char *sqlErr;
 
@@ -173,7 +173,7 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 	unsigned short fieldId, fieldType;
 	long ind, time_ms;
 
-	int val;
+	long val;
 	// insert timestamp and field values for every sample
 	for (int i = 0; i < n_samples; i++){
 
@@ -196,13 +196,13 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 				switch (fieldType) {
 					case DCGM_FT_DOUBLE:
 						// all the doubles are fractions 0-1, we instead represent as int 0-100
-						val = (int) round(((double *) fieldValues)[ind] * 100);
+						val = (long) round(((double *) fieldValues)[ind] * 100);
 						break;
 					case DCGM_FT_INT64:
-						val =  (int) (((long *) fieldValues)[ind]);
+						val =  (((long *) fieldValues)[ind]);
 						break;
 					case DCGM_FT_TIMESTAMP:
-						val = (int) (((long *) fieldValues)[ind]);
+						val = (((long *) fieldValues)[ind]);
 						break;
 					default:
 						val = 0;
