@@ -226,7 +226,8 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 	clock_gettime(CLOCK_REALTIME, &end);
 
 	long elapsed_time_ns = ((end.tv_sec - start.tv_sec) * 1e9) + (end.tv_nsec - start.tv_nsec);
-	printf("Elasped time of dump: %lu", elapsed_time_ns);
+	long elapsed_time_ms = elapsed_time_ns / 1e6;
+	printf("Elasped time of dump: %lu ms", elapsed_time_ms);
 
 
 
