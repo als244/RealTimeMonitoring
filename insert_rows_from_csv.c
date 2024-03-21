@@ -88,62 +88,77 @@ int main(int argc, char *argv[]){
 	sqlite3_exec(db, "BEGIN", 0, 0, 0);	
 
 	while ((n_read = getline(&line_buffer, &len, fp)) != -1) {
-        
-        n_success = sscanf(line_buffer, "%s,%ld,%ld,%ld,%lg", hostname, &timestamp_ms, &device_id, &field_id, &value_raw);
-    	// bad line, so continue
-    	if (n_success != 5){
+        	
+		/*
+		printf("Line buffer:\n");
+		printf("%s\n\n", line_buffer);
+		*/
+
+        	n_success = sscanf(line_buffer, "%[^,],%ld,%ld,%ld,%lg", hostname, &timestamp_ms, &device_id, &field_id, &value_raw);
+    		
+		/*
+		printf("N success: %d\n", n_success);
+		printf("Hostname: %s\n", hostname);
+		printf("Timestamp ms: %ld\n", timestamp_ms);
+		printf("Device id: %ld\n", device_id);
+		printf("Field id: %ld\n", field_id);
+		printf("Value raw: %lg\n", value_raw);
+		*/
+
+		// bad line, so continue
+    		if (n_success != 5){
+    			total_lines += 1;
+    			continue;
+    		}
+
+    		// specify which field id's should be mulitplied by 100 and converted
+    		switch (field_id){
+    			// gpu memory %
+    			case 254:
+    				value = (long) round(value_raw * 100);
+    				break;
+    			// sm activity initally a fraction 0-1
+    			case 1002:
+    				value = (long) round(value_raw * 100);
+    				break;
+    			// occupancy initially a fraction 0-1
+    			case 1003:
+    				value = (long) round(value_raw * 100);
+    				break;
+    			// tensor activity a fraction 0-1
+    			case 1004:
+    				value = (long) round(value_raw * 100);
+    				break;
+    			// DRAM active a fraction 0-1
+    			case 1005:
+    				value = (long) round(value_raw * 100);
+    				break;
+    			default:
+    				value = (long) round(value_raw);
+    				break;
+    		}
+
+    		insert_row_to_db(db, hostname, timestamp_ms, device_id, field_id, value);
+    		db_rows += 1;
     		total_lines += 1;
-    		continue;
-    	}
 
-    	// specify which field id's should be mulitplied by 100 and converted
-    	switch (field_id){
-    		// gpu memory %
-    		case 254:
-    			value = (long) round(value_raw * 100);
-    			break;
-    		// sm activity initally a fraction 0-1
-    		case 1002:
-    			value = (long) round(value_raw * 100);
-    			break;
-    		// occupancy initially a fraction 0-1
-    		case 1003:
-    			value = (long) round(value_raw * 100);
-    			break;
-    		// tensor activity a fraction 0-1
-    		case 1004:
-    			value = (long) round(value_raw * 100);
-    			break;
-    		// DRAM active a fraction 0-1
-    		case 1005:
-    			value = (long) round(value_raw * 100);
-    			break;
-    		default:
-    			value = (long) round(value_raw);
-    			break;
-    	}
-
-    	insert_row_to_db(db, hostname, timestamp_ms, device_id, field_id, value);
-    	db_rows += 1;
-    	total_lines += 1;
-
-    	if ((total_lines % 1000000) == 0){
-    		printf("Total lines: %ld\n", total_lines);
-    		printf("DB Rows: %ld\n", db_rows);
-    	}
+    		if ((total_lines % 100000) == 0){
+    			printf("Total lines: %ld\n", total_lines);
+    			printf("DB Rows: %ld\n\n", db_rows);
+    		}
 
     	
-    	if ((db_rows % 1000000) == 0){
+    		if ((db_rows % 100000) == 0){
   			// EXPLICITY COMMIT AFTER 1 million rows
 			sqlite3_exec(db, "COMMIT", 0, 0, 0);
 			// BEGIN NEW TRANSACTION
 			sqlite3_exec(db, "BEGIN", 0, 0, 0);		
+    		}
     	}
-    }
 
-    // if there are remaining rows uncommited, commit
-    sqlite3_exec(db, "COMMIT", 0, 0, 0);	
+	// if there are remaining rows uncommited, commit
+    	sqlite3_exec(db, "COMMIT", 0, 0, 0);	
 
-    free(line_buffer);
+    	free(line_buffer);
 
 }
