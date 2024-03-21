@@ -14,7 +14,7 @@ def main(args):
         hostname = args[1]
 
     ## set up dumping to db
-    db_path = "/scratch/gpfs/as1669/ClusterMonitoring/data/job_details/" + hostname + ".db"
+    db_path = "/scratch/gpfs/as1669/ClusterMonitoring/data/job_details/" + hostname + "_jobs.db"
     table_name = "Jobs"
     con = sqlite3.connect(db_path)
     cur = con.cursor()
