@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -75,7 +76,7 @@ int main(int argc, char *argv[]){
 	size_t len = 0;
 	ssize_t n_read;	
 
-	char * hostname;
+	char hostname[256];
 	double value_raw;
 	long timestamp_ms, field_id, device_id, value;
 	int n_success;
@@ -88,7 +89,7 @@ int main(int argc, char *argv[]){
 
 	while ((n_read = getline(&line_buffer, &len, fp)) != -1) {
         
-        n_success = sscanf(line_buffer, "%s,%ld,%ld,%ld,%lg", &hostname, &timestamp_ms, &device_id, &field_id, &value_raw);
+        n_success = sscanf(line_buffer, "%s,%ld,%ld,%ld,%lg", hostname, &timestamp_ms, &device_id, &field_id, &value_raw);
     	// bad line, so continue
     	if (n_success != 5){
     		total_lines += 1;
