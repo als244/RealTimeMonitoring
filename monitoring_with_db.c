@@ -24,7 +24,7 @@
 #include "monitoring.h"
 
 
-#define PRINT 1
+#define PRINT 0
 
 // CPU MONITORING
 Proc_Data * process_proc_stat(Sample * cur_sample, Proc_Data * prev_data){
