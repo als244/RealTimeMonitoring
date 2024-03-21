@@ -3,6 +3,7 @@ import sys
 from datetime import date
 import csv
 import sqlite3
+import time
 
 def main(args):
 
