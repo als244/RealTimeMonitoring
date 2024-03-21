@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <math.h>
 #include <sqlite3.h>
 
@@ -83,6 +84,10 @@ int main(int argc, char *argv[]){
 	long total_lines = 0;
 	long db_rows = 0;
 
+	struct timespec start, end;
+	long elapsed_time_ms;
+	clock_gettime(CLOCK_REALTIME, &start);
+
 	// EXPLICITY START DB TRANSACTION SO IT DOESN't AUTO COMMIT
 	sqlite3_exec(db, "BEGIN", 0, 0, 0);	
 
@@ -158,14 +163,19 @@ int main(int argc, char *argv[]){
 		db_rows += 1;
     		total_lines += 1;
 
-    		if ((total_lines % 100000) == 0){
+    		if ((total_lines % 10000000) == 0){
+			clock_gettime(CLOCK_REALTIME, &end);
     			printf("Total lines: %ld\n", total_lines);
-    			printf("DB Rows: %ld\n\n", db_rows);
+    			printf("DB Rows: %ld\n", db_rows);
+			elapsed_time_ms = (((end.tv_sec - start.tv_sec) * 1e9) + (end.tv_nsec - start.tv_nsec)) / 1e6;
+			printf("10 M elasped time: %ld ms\n\n", elapsed_time_ms);
+			// reset timer
+			clock_gettime(CLOCK_REALTIME, &start);
     		}
 
     	
-    		if ((db_rows % 100000) == 0){
-  			// EXPLICITY COMMIT AFTER 1 million rows
+    		if ((db_rows % 10000000) == 0){
+  			// EXPLICITY COMMIT AFTER 100 million rows
 			sqlite3_exec(db, "COMMIT", 0, 0, 0);
 			// BEGIN NEW TRANSACTION
 			sqlite3_exec(db, "BEGIN", 0, 0, 0);		
