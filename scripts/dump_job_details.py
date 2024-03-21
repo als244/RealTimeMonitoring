@@ -46,7 +46,7 @@ def main(args):
 
     ### creating file to dump sacct to 
     time_sec = round(time.time())
-    raw_data_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/job_details/raw_sacct_data/"
+    raw_data_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/job_details/temp/"
     sacct_file_name = raw_data_dir + hostname + "_" + str(time_sec) + ".out"
 
     ### call slurm sacct command to retrieve data
