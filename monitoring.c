@@ -135,7 +135,7 @@ void insert_row_to_db(sqlite3 * db, long timestamp_ms, long device_id, long fiel
 
 	char * insert_statement;
 
-	asprintf(&insert_statement, "INSERT INTO Data (timestamp_ms,device_id,field_id,value) VALUES (%ld, %ld, %ld, %ld);", timestamp_ms, device_id, field_id, value);
+	asprintf(&insert_statement, "INSERT INTO Data (timestamp,device_id,field_id,value) VALUES (%ld, %ld, %ld, %ld);", timestamp_ms, device_id, field_id, value);
 
 	char *sqlErr;
 
@@ -171,7 +171,7 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 	Sample data;
 
 	unsigned short fieldId, fieldType;
-	long ind, time_ms;
+	long ind, time_ns;
 
 	long val;
 	// insert timestamp and field values for every sample
@@ -185,12 +185,12 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 	for (int i = 0; i < n_samples; i++){
 
 		data = samples[i];
-		time_ms = data.time.tv_sec * 1e3 + data.time.tv_nsec / 1e6;
+		time_ns = data.time.tv_sec * 1e9 + data.time.tv_nsec;
 
 		// CPU dump
 		cpu_data = data.cpu_util;
-		insert_row_to_db(db, time_ms, -1, 0, cpu_data -> free_mem);
-		insert_row_to_db(db, time_ms, -1, 1, round(cpu_data -> util_pct));
+		insert_row_to_db(db, time_ns, -1, 0, cpu_data -> free_mem);
+		insert_row_to_db(db, time_ns, -1, 1, round(cpu_data -> util_pct));
 		
 		// GPU Field dump
 		fieldValues = data.field_values;
@@ -215,7 +215,7 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 						val = 0;
 						break;
     			}
-    			insert_row_to_db(db, time_ms, gpuId, fieldId, val);
+    			insert_row_to_db(db, time_ns, gpuId, fieldId, val);
     		}
     	}
 	}
@@ -552,7 +552,7 @@ int main(int argc, char ** argv, char * envp[]){
 		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
 	}
 
-	char * create_table_cmd = "CREATE TABLE IF NOT EXISTS Data (timestamp_ms INT, device_id INT, field_id INT, value INT);";
+	char * create_table_cmd = "CREATE TABLE IF NOT EXISTS Data (timestamp INT, device_id INT, field_id INT, value INT);";
 	char * sqlErr;
 
 	sql_ret = sqlite3_exec(db, create_table_cmd, NULL, NULL, &sqlErr);
