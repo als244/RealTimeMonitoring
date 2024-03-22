@@ -569,10 +569,10 @@ int main(int argc, char ** argv, char * envp[]){
 		n_samples = samples_buffer -> n_samples;
 		clock_gettime(CLOCK_REALTIME, &time);
 
-		// CHECK TO SEE IF IT HAS BEEN AN HOUR (61 min) SINCE LAST JOB STATUS QUERY
+		// CHECK TO SEE IF IT HAS BEEN AN HOUR SINCE LAST JOB STATUS QUERY
                 // IF SO, CALL PYTHON SCRIPT TO COLLECT INFO FROM SACCT AND DUMP TO DIFFERENT DB
                 time_sec = time.tv_sec;
-                if ((time_sec - prev_job_collection_time) > (61 * 60)){
+                if ((time_sec - prev_job_collection_time) > (60 * 60)){
                         system("python /home/as1669/RealTimeMonitoring/scripts/dump_job_details.py &");
                         prev_job_collection_time = time_sec;
                 }
