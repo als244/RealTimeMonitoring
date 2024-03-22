@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/dir.h>
 #include <math.h>
 
 #include <sqlite3.h>
@@ -357,6 +358,113 @@ unsigned short * parse_string_to_arr(char * str, int * n_vals){
 
 }
 
+const char *NET_DIR = "/sys/class/net/";
+const char *STATFILE = "statistics";
+
+void free_network_util_statfiles(struct NetworkUtilStatFiles *network_util_statfiles)
+{
+	for (int i = 0; i < network_util_statfiles->n_statfiles; i++)
+	{
+		free(network_util_statfiles->statfile_paths[i]);
+	}
+	free(network_util_statfiles->statfile_paths);
+	free(network_util_statfiles);
+}
+
+unsigned long long int get_aggregated_network_stat_value(struct NetworkUtilStatFiles *network_util_statfiles, char *stat_name)
+{
+	unsigned long long int value = 0;
+	for (int i = 0; i < network_util_statfiles->n_statfiles; i++)
+	{
+		char *path = network_util_statfiles->statfile_paths[i];
+		char* statfile_path = (char *)malloc(256 * sizeof(char));
+		statfile_path[0] = '\0';
+		snprintf(statfile_path, 256, "%s/%s", path, stat_name);
+
+		FILE *fp = fopen(statfile_path, "r");
+		if (fp == NULL)
+		{
+			perror("Failed to open stat file\n");
+			return -1;
+		}
+
+		unsigned long long int val;
+		fscanf(fp, "%llu", &val);
+		value += val;
+		fclose(fp);
+		free(statfile_path);
+	}
+
+	return value;
+}
+
+struct Network_stat collect_network_stats(const struct NetworkUtilStatFiles *network_util_statfiles)
+{
+	// collect aggregated network stats for all interfaces
+	struct Network_stat network_stats;
+
+	// collect rx_bytes from all interfaces
+	network_stats.rx_bytes = get_aggregated_network_stat_value(network_util_statfiles, "rx_bytes");
+	network_stats.tx_bytes = get_aggregated_network_stat_value(network_util_statfiles, "tx_bytes");
+	network_stats.rx_packets = get_aggregated_network_stat_value(network_util_statfiles, "rx_packets");
+	network_stats.tx_packets = get_aggregated_network_stat_value(network_util_statfiles, "tx_packets");
+	network_stats.rx_errors = get_aggregated_network_stat_value(network_util_statfiles, "rx_errors");
+	network_stats.tx_errors = get_aggregated_network_stat_value(network_util_statfiles, "tx_errors");
+	network_stats.rx_dropped = get_aggregated_network_stat_value(network_util_statfiles, "rx_dropped");
+	network_stats.tx_dropped = get_aggregated_network_stat_value(network_util_statfiles, "tx_dropped");
+	network_stats.rx_compressed = get_aggregated_network_stat_value(network_util_statfiles, "rx_compressed");
+	network_stats.tx_compressed = get_aggregated_network_stat_value(network_util_statfiles, "tx_compressed");
+
+
+	return network_stats;
+}
+
+struct NetworkUtilStatFiles *get_network_util_statfiles()
+{
+
+	struct dirent *entry;
+	DIR *dp;
+
+	dp = opendir(NET_DIR);
+	if (dp == NULL)
+	{
+		perror("Failed to find /sys/class/net/ directory for network stats\n");
+		return;
+	}
+
+	char **directories = (char **)malloc(100 * sizeof(char *));
+	int n_dirs = 0;
+
+	while ((entry = readdir(dp)) != NULL)
+	{
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || strcmp(entry->d_name, "lo") == 0)
+		{
+			// skip these directories + loopback to avoid local traffic
+			continue;
+		}
+		printf("Found directory: %s\n", entry->d_name);
+		// clone the paths to the stat files into a buffer
+		char *path = (char *)malloc((strlen(NET_DIR) + strlen(entry->d_name) + strlen(STATFILE) + 2) * sizeof(char));
+		path[0] = '\0';
+		snprintf(path, 256, "%s%s/%s", NET_DIR, entry->d_name, STATFILE);
+		directories[n_dirs] = path;
+		n_dirs++;
+		if (n_dirs >= 100)
+		{
+			perror("Too many directories in /sys/class/net/ directory\n");
+			return;
+		}
+	}
+
+	closedir(dp);
+
+	struct NetworkUtilStatFiles *statfiles = (struct NetworkUtilStatFiles *)malloc(sizeof(struct NetworkUtilStatFiles));
+
+	statfiles->statfile_paths = directories;
+	statfiles->n_statfiles = n_dirs;
+
+	return statfiles;
+}
 
 int main(int argc, char ** argv, char * envp[]){
 
@@ -366,10 +474,10 @@ int main(int argc, char ** argv, char * envp[]){
 	int n_fields = 10;
 	char * field_ids_string = "203,254,1002,1003,1004,1005,1009,1010,1011,1012";
 	int sample_freq_millis = 100;
-	int n_samples_per_buffer = 6000;
+	int n_samples_per_buffer = 60;
 	// deafult for Della
 	// location where the per-host databases are 
-	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/node_utilizations";
+	char * output_dir = "/home/samyakg/scratch/Research/RealTimeMonitoring/data/job_details";
 
 	
 
@@ -520,8 +628,17 @@ int main(int argc, char ** argv, char * envp[]){
 		}
 		fieldTypes[i] = (unsigned short) meta_ptr -> fieldType;
 	}
-	
 
+	// SETUP NETWORK STATS
+	struct NetworkUtilStatFiles *network_util_statfiles = get_network_util_statfiles();
+	if (network_util_statfiles == NULL)
+	{
+		fprintf(stderr, "Failed to get network util statfiles\n");
+		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
+	}
+	printf("Found %d network interfaces\n", network_util_statfiles->n_statfiles);
+
+	struct Network_stat network_stats = collect_network_stats(network_util_statfiles);
 
 	int n_cpu = sysconf(_SC_NPROCESSORS_ONLN);
 	int clk_tck = sysconf(_SC_CLK_TCK);
@@ -542,6 +659,8 @@ int main(int argc, char ** argv, char * envp[]){
 
 	char * db_filename;
 	asprintf(&db_filename, "%s/%s_metrics.db", output_dir, hostbuffer);
+
+	printf("DB FILENAME: %s\n", db_filename);
 	
 	int sql_ret;
 	sql_ret = sqlite3_open(db_filename, &db);
@@ -573,7 +692,7 @@ int main(int argc, char ** argv, char * envp[]){
                 // IF SO, CALL PYTHON SCRIPT TO COLLECT INFO FROM SACCT AND DUMP TO DIFFERENT DB
                 time_sec = time.tv_sec;
                 if ((time_sec - prev_job_collection_time) > (60 * 60)){
-                        system("python /home/as1669/RealTimeMonitoring/scripts/dump_job_details.py &");
+                        system("python scripts/dump_job_details.py &");
                         prev_job_collection_time = time_sec;
                 }
 
@@ -587,28 +706,49 @@ int main(int argc, char ** argv, char * envp[]){
 		// set the previous to be current so as to accurately compute util % next time
 		prev_proc_data = cpu_util;
 
+		// COLLECT NETWORK STATS
+		network_stats = collect_network_stats(network_util_statfiles);
 
 		// COLLECT GPU VALUES
-		
-		if (PRINT) {
+
+		if (PRINT)
+		{
 			printf("Time %ld: Collecting Values...\n", time.tv_sec);
 		}
 
 		// update fields (and wait for return)
 		dcgm_ret = dcgmUpdateAllFields(dcgmHandle, 1);
-		if (dcgm_ret != DCGM_ST_OK){
+		if (dcgm_ret != DCGM_ST_OK)
+		{
 			fprintf(stderr, "UPDATE ALL FIELDS ERROR, Exiting...\n");
-                        cleanup_and_exit(dcgm_ret, &dcgmHandle, &groupId, &fieldGroupId);
+			cleanup_and_exit(dcgm_ret, &dcgmHandle, &groupId, &fieldGroupId);
 		}
 
 		// retrieve values
-		dcgm_ret = dcgmGetLatestValues(dcgmHandle, groupId, fieldGroupId, &copy_field_values_function, (void *) samples_buffer);
-		
-		if (dcgm_ret != DCGM_ST_OK){
+		dcgm_ret = dcgmGetLatestValues(dcgmHandle, groupId, fieldGroupId, &copy_field_values_function, (void *)samples_buffer);
+
+		if (dcgm_ret != DCGM_ST_OK)
+		{
 			fprintf(stderr, "GET LATEST VALUES ERROR, Exiting...\n");
 			cleanup_and_exit(dcgm_ret, &dcgmHandle, &groupId, &fieldGroupId);
 		}
-		
+
+		if (PRINT)
+		{
+			// print network stats
+			printf("Network Stats:\n");
+			printf("RX Bytes: %llu\n", network_stats.rx_bytes);
+			printf("TX Bytes: %llu\n", network_stats.tx_bytes);
+			printf("RX Packets: %llu\n", network_stats.rx_packets);
+			printf("TX Packets: %llu\n", network_stats.tx_packets);
+			printf("RX Errors: %llu\n", network_stats.rx_errors);
+			printf("TX Errors: %llu\n", network_stats.tx_errors);
+			printf("RX Dropped: %llu\n", network_stats.rx_dropped);
+			printf("TX Dropped: %llu\n", network_stats.tx_dropped);
+			printf("RX Compressed: %llu\n", network_stats.rx_compressed);
+			printf("TX Compressed: %llu\n", network_stats.tx_compressed);
+		}
+
 		if (PRINT) {
 			if (cpu_util != NULL){
 				printf("CPU Stats. Util: %d, Free Mem: %d\n\nGPU Stats:\n", (int) round(cur_sample -> cpu_util -> util_pct), (int) (cur_sample -> cpu_util -> free_mem));

@@ -7,10 +7,31 @@ typedef struct Proc_Data {
 } Proc_Data;
 
 
+typedef struct Network_stat
+{
+	unsigned long long int rx_bytes;
+	unsigned long long int tx_bytes;
+	unsigned long long int rx_packets;
+	unsigned long long int tx_packets;
+	unsigned long long int rx_errors;
+	unsigned long long int tx_errors;
+	unsigned long long int rx_dropped;
+	unsigned long long int tx_dropped;
+	unsigned long long int rx_compressed;
+	unsigned long long int tx_compressed;
+} Network_stat;
+
+struct NetworkUtilStatFiles 
+{
+	char **statfile_paths;
+	int n_statfiles;
+};
+
 typedef struct sample {
 	struct timespec time;
 	void * field_values;
 	Proc_Data * cpu_util;
+	Network_stat network_stat;
 } Sample;
 
 typedef struct samples_buffer {
