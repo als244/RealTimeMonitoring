@@ -1,27 +1,12 @@
 #define _GNU_SOURCE
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <time.h>
-#include <getopt.h>
-#include <sys/sysinfo.h>
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <math.h>
-
-#include <sqlite3.h>
-
 #include "dcgm_agent.h"
 #include "dcgm_fields.h"
 #include "dcgm_structs.h"
 
 
 #include "monitoring.h"
+#include "job_stats.h"
 
 
 #define PRINT 0
@@ -131,7 +116,7 @@ int copy_field_values_function(unsigned int gpuId, dcgmFieldValue_v1 * values, i
 	return 0;
 }
 
-void insert_row_to_db(sqlite3 * db, long timestamp_ms, long device_id, long field_id, long value){
+void insert_sample_to_db(sqlite3 * db, long timestamp_ms, long device_id, long field_id, long value){
 
 	char * insert_statement;
 
@@ -189,8 +174,8 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 
 		// CPU dump
 		cpu_data = data.cpu_util;
-		insert_row_to_db(db, time_ns, -1, 0, cpu_data -> free_mem);
-		insert_row_to_db(db, time_ns, -1, 1, round(cpu_data -> util_pct));
+		insert_sample_to_db(db, time_ns, -1, 0, cpu_data -> free_mem);
+		insert_sample_to_db(db, time_ns, -1, 1, round(cpu_data -> util_pct));
 		
 		// GPU Field dump
 		fieldValues = data.field_values;
@@ -215,7 +200,7 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 						val = 0;
 						break;
     			}
-    			insert_row_to_db(db, time_ns, gpuId, fieldId, val);
+    			insert_sample_to_db(db, time_ns, gpuId, fieldId, val);
     		}
     	}
 	}
@@ -538,6 +523,8 @@ int main(int argc, char ** argv, char * envp[]){
 	Proc_Data * cpu_util;
 	Proc_Data * prev_proc_data = NULL;
 
+
+	/* CREATING METRICS TABLE */
 	sqlite3 *db;
 
 	char * db_filename;
@@ -560,6 +547,42 @@ int main(int argc, char ** argv, char * envp[]){
 		fprintf(stderr, "SQL Error: %s\n", sqlErr);
 		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
 	}
+
+	/* CREATING JOBS TABLE */
+	const char * jobs_table_creation = "CREATE TABLE IF NOT EXISTS Jobs ("
+                             "job_id INT, "
+                             "user VARCHAR(10),"
+                             "group VARCHAR(20),"
+                             "n_nodes INT,"
+                             "n_cpus INT,"
+                             "n_gpus INT,"
+                             "mem_mb INT,"
+                             "billing INT,"
+                             "time_limit CHAR(8),"
+                             "submit_time CHAR(19),"
+                             "node_list VARCHAR(255),"
+                             "start_time CHAR(19),"
+                             "end_time CHAR(19),"
+                             "elapsed_time CHAR(8),"
+                             "state VARCHAR(20),"
+                             "exit_code CHAR(3),"
+                             "PRIMARY KEY (job_id)"
+                             ");";
+
+        const char * jobs_db_filename;
+        asprintf(&jobs_db_filename, "%s/%s_jobs.db", output_dir, hostbuffer);
+
+        sqlite3 * jobs_db;
+
+        sql_ret = sqlite3_open(jobs_db_filename, &jobs_db);
+        free(jobs_db_filename);
+
+        sql_ret = sqlite3_exec(db, create_table_cmd, NULL, NULL, &sqlErr);
+	if (sql_ret != SQLITE_OK){
+		fprintf(stderr, "SQL Error: %s\n", sqlErr);
+		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
+	}
+
 	
 	long time_sec;
         long prev_job_collection_time = 0;
@@ -573,7 +596,7 @@ int main(int argc, char ** argv, char * envp[]){
                 // IF SO, CALL PYTHON SCRIPT TO COLLECT INFO FROM SACCT AND DUMP TO DIFFERENT DB
                 time_sec = time.tv_sec;
                 if ((time_sec - prev_job_collection_time) > (60 * 60)){
-                        system("python /home/as1669/RealTimeMonitoring/scripts/dump_job_details.py &");
+                       	collect_job_stats(jobs_db, output_dir, hostbuffer, time_sec);
                         prev_job_collection_time = time_sec;
                 }
 
