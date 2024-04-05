@@ -1,12 +1,12 @@
 #define _GNU_SOURCE
 
+#include "job_stats.h"
 #include "dcgm_agent.h"
 #include "dcgm_fields.h"
 #include "dcgm_structs.h"
 
-
 #include "monitoring.h"
-#include "job_stats.h"
+
 
 
 #define PRINT 0
