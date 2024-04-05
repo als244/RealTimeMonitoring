@@ -14,11 +14,11 @@ void insert_job_to_db(sqlite3 * jobs_db, Job * job){
 										job -> job_id,
 										job -> user,
 										job -> group,
-										job -> n_nodes,
-										job -> n_cpus,
-										job -> n_gpus,
-										job -> mem_mb,
-										job -> billing,
+										&(job -> n_nodes),
+										&(job -> n_cpus),
+										&(job -> n_gpus),
+										&(job -> mem_mb),
+										&(job -> billing),
 										job -> time_limit,
 										job -> submit_time,
 										job -> node_list,
@@ -57,11 +57,11 @@ int parse_req_tres(Job * job){
 		}
 	}
 	if (comma_cnt == 3){
-		sscanf(req_tres, "billing=%d,cpu=%d,mem=%dM,node=%d", job -> billing, job -> n_cpus, job -> mem_mb, job -> n_nodes);
+		sscanf(req_tres, "billing=%d,cpu=%d,mem=%dM,node=%d", &(job -> billing), &(job -> n_cpus), &(job -> mem_mb), &(job -> n_nodes));
 		job -> n_gpus = 0;
 	}
 	else if (comma_cnt == 4){
-		sscanf(req_tres, "billing=%d,cpu=%d,gres/gpu=%d,mem=%dM,node=%d", job -> billing, job -> n_cpus, job -> n_gpus, job -> mem_mb, job -> n_nodes);
+		sscanf(req_tres, "billing=%d,cpu=%d,gres/gpu=%d,mem=%dM,node=%d", &(job -> billing), &(job -> n_cpus), &(job -> n_gpus), &(job -> mem_mb), &(job -> n_nodes));
 	}
 	else{
 		return -1;
