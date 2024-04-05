@@ -6,7 +6,7 @@ SQLITE3_INCLUDE_PATH = /home/as1669/local/include
 
 all: monitor readMonitoringData insert_rows_from_csv
 
-monitor: monitoring.c
+monitor: monitoring.c job_stats.c
 	${CC} ${CFLAGS} -o $@ $^ -I${SQLITE3_INCLUDE_PATH} -L${SQLITE3_LIBRARY_PATH} -lsqlite3 -ldcgm -lm
 
 readMonitoringData: read_monitoring_data.c
