@@ -105,7 +105,7 @@ void dump_sacct_file(sqlite3 * jobs_db, char * outfile){
 		ret_cnt = sscanf(buffer, "%s[^|]|%s[^|]|%ld|%s[^|]|%s[^|]|%s[^|]|%s[^|]|%s[^|]|%s[^|]|%s[^|]||%s[^|]|%s",
 			job -> user,
 			job -> group,
-			job -> job_id,
+			&(job -> job_id),
 			job -> req_tres,
 			job -> time_limit,
 			job -> submit_time,

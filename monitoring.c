@@ -569,7 +569,7 @@ int main(int argc, char ** argv, char * envp[]){
                              "PRIMARY KEY (job_id)"
                              ");";
 
-        const char * jobs_db_filename;
+        char * jobs_db_filename;
         asprintf(&jobs_db_filename, "%s/%s_jobs.db", output_dir, hostbuffer);
 
         sqlite3 * jobs_db;
@@ -577,7 +577,7 @@ int main(int argc, char ** argv, char * envp[]){
         sql_ret = sqlite3_open(jobs_db_filename, &jobs_db);
         free(jobs_db_filename);
 
-        sql_ret = sqlite3_exec(db, create_table_cmd, NULL, NULL, &sqlErr);
+        sql_ret = sqlite3_exec(db, jobs_table_creation, NULL, NULL, &sqlErr);
 	if (sql_ret != SQLITE_OK){
 		fprintf(stderr, "SQL Error: %s\n", sqlErr);
 		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
