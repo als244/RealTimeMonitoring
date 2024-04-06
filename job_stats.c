@@ -169,7 +169,7 @@ void collect_job_stats(sqlite3 * jobs_db, char * out_dir, char * hostname, long 
 	asprintf(&cmd, "sacct --nodelist=%s --format=User,Group,JobID,ReqTRES,Timelimit,Submit,NodeList,Start,End,Elapsed,State,ExitCode --state=COMPLETED,CANCELLED,FAILED,TIMEOUT,OUT_OF_MEMORY --starttime=now-1hour --endtime=now --unit=M --allusers -P -n", hostname);
 
 	char * outfile;
-	asprintf(&outfile, "%s/%s_temp.txt");
+	asprintf(&outfile, "%s/%s_temp.txt", out_dir, hostname);
 
 	char * full_cmd;
 
