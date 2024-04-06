@@ -5,12 +5,12 @@
 //	- ignore rows where user is blank
 
 void insert_job_to_db(sqlite3 * jobs_db, Job * job){
-	char * insert_statement = "INSERT INTO Jobs"
+	char * insert_statement = "INSERT INTO Jobs "
                         "(job_id, user_name, group_name, n_nodes, n_cpus, n_gpus, mem_mb, billing, time_limit, submit_time, node_list, start_time, end_time, elapsed_time, state, exit_code)";
 
     char * full_insert_statement;
 
-	asprintf(&full_insert_statement, "%s VALUES (%ld, %s, %s, %d, %d, %d, %d, %d, %s, %s, %s, %s, %s, %s, %s, %s);", insert_statement, 
+	asprintf(&full_insert_statement, "%s VALUES (%ld, '%s', '%s', %d, %d, %d, %d, %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s');", insert_statement, 
 										job -> job_id,
 										job -> user,
 										job -> group,
@@ -32,12 +32,14 @@ void insert_job_to_db(sqlite3 * jobs_db, Job * job){
 
 	int sql_ret = sqlite3_exec(jobs_db, full_insert_statement, NULL, NULL, &sqlErr);
 	
-	free(full_insert_statement);
 
 	if (sql_ret != SQLITE_OK){
 		fprintf(stderr, "SQL error: %s\n", sqlErr);
+		fprintf(stdout, "Bad sql line: %s\n", full_insert_statement);
 		sqlite3_free(sqlErr);
 	}
+
+	free(full_insert_statement);
 
 	return;
 }
@@ -142,8 +144,8 @@ void dump_sacct_file(sqlite3 * jobs_db, char * outfile){
 	sqlite3_exec(jobs_db, "BEGIN", 0, 0, 0);
 
 
-	while(fgets(buffer, sizeof(buffer), sacct_file)){
-		
+	while(fgets(buffer, sizeof(buffer), sacct_file) != NULL){
+			
 		scan_line(buffer, job);
 
 		// error reading line
@@ -151,7 +153,7 @@ void dump_sacct_file(sqlite3 * jobs_db, char * outfile){
 			continue;
 		}
 
-		insert_job_to_db(NULL, job);
+		insert_job_to_db(jobs_db, job);
 
 	}
 

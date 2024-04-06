@@ -569,16 +569,6 @@ int main(int argc, char ** argv, char * envp[]){
                              "PRIMARY KEY (job_id)"
                              ");";
 
-	printf("Jobs table creation string:\n%s\n", jobs_table_creation);
-
-        char * jobs_db_filename;
-        asprintf(&jobs_db_filename, "%s/%s_jobs.db", output_dir, hostbuffer);
-
-        sqlite3 * jobs_db;
-
-        sql_ret = sqlite3_open(jobs_db_filename, &jobs_db);
-        free(jobs_db_filename);
-
         sql_ret = sqlite3_exec(db, jobs_table_creation, NULL, NULL, &sqlErr);
 	if (sql_ret != SQLITE_OK){
 		fprintf(stderr, "SQL Error: %s\n", sqlErr);
@@ -598,7 +588,7 @@ int main(int argc, char ** argv, char * envp[]){
                 // IF SO, CALL PYTHON SCRIPT TO COLLECT INFO FROM SACCT AND DUMP TO DIFFERENT DB
                 time_sec = time.tv_sec;
                 if ((time_sec - prev_job_collection_time) > (60 * 60)){
-                       	collect_job_stats(jobs_db, output_dir, hostbuffer, time_sec);
+                       	collect_job_stats(db, output_dir, hostbuffer, time_sec);
                         prev_job_collection_time = time_sec;
                 }
 
