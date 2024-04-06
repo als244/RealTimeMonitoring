@@ -40,12 +40,9 @@ int parse_req_tres(Job * job){
 
 	char * req_tres = job -> req_tres;
 	int len = strlen(req_tres);
-	printf("Len = %d\n", len);
-
 	int comma_cnt = 0;
 	for (int i = 0; i < len; i++){
 		if (req_tres[i] == ','){
-			printf("Saw comma at i = %d\n", i);
 			comma_cnt += 1;
 		}
 	}
@@ -84,7 +81,7 @@ void scan_line(char *line, Job * job)
 
     char * tok = strtok(line, "|");
     strcpy(job -> user, tok);
-    
+
     tok = strtok(NULL, "|");
     strcpy(job -> group, tok);
 
