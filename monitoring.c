@@ -384,8 +384,8 @@ int main(int argc, char ** argv, char * envp[]){
 	}
 
 	// appending hostname to the output directory to store values for this host
-	char hostbuffer[256];
-	int hostname_ret = gethostname(hostbuffer, sizeof(hostbuffer));
+	char * hostbuffer = malloc(256 * sizeof(char));
+	int hostname_ret = gethostname(hostbuffer, 256);
 	if (hostname_ret == -1){
 		fprintf(stderr, "Could not get hostname, exiting...\n");
 		exit(1);
@@ -696,7 +696,7 @@ int main(int argc, char ** argv, char * envp[]){
 	free(fieldTypes);
 	free(samples_buffer -> samples);
 	free(samples_buffer);
-	
+	free(hostbuffer);
 	// AT END
 	cleanup_and_exit(DCGM_ST_OK, &dcgmHandle, &groupId, &fieldGroupId);
 
