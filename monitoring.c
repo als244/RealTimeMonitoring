@@ -551,23 +551,25 @@ int main(int argc, char ** argv, char * envp[]){
 	/* CREATING JOBS TABLE */
 	const char * jobs_table_creation = "CREATE TABLE IF NOT EXISTS Jobs ("
                              "job_id INT, "
-                             "user VARCHAR(10),"
-                             "group VARCHAR(20),"
-                             "n_nodes INT,"
-                             "n_cpus INT,"
-                             "n_gpus INT,"
-                             "mem_mb INT,"
-                             "billing INT,"
-                             "time_limit CHAR(8),"
-                             "submit_time CHAR(19),"
-                             "node_list VARCHAR(255),"
-                             "start_time CHAR(19),"
-                             "end_time CHAR(19),"
-                             "elapsed_time CHAR(8),"
-                             "state VARCHAR(20),"
-                             "exit_code CHAR(3),"
+                             "user VARCHAR(10), "
+                             "group VARCHAR(20), "
+                             "n_nodes INT, "
+                             "n_cpus INT, "
+                             "n_gpus INT, "
+                             "mem_mb INT, "
+                             "billing INT, "
+                             "time_limit CHAR(8), "
+                             "submit_time CHAR(19), "
+                             "node_list VARCHAR(255), "
+                             "start_time CHAR(19), "
+                             "end_time CHAR(19), "
+                             "elapsed_time CHAR(8), "
+                             "state VARCHAR(20), "
+                             "exit_code CHAR(3), "
                              "PRIMARY KEY (job_id)"
                              ");";
+
+	printf("Jobs table creation string:\n%s\n", jobs_table_creation);
 
         char * jobs_db_filename;
         asprintf(&jobs_db_filename, "%s/%s_jobs.db", output_dir, hostbuffer);
