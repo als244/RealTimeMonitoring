@@ -79,10 +79,16 @@ void scan_line(char *line, Job * job)
     if (strlen(tok) > 0){
     	strcpy(job -> user, tok);
     }
+    else {
+    	job -> user[0] = '\0';
+    	return;
+    }
+
     tok = strtok(NULL, "|");
     strcpy(job -> group, tok);
-    
+
     tok = strtok(NULL, "|");
+	
     job -> job_id = atol(tok);
 
     tok = strtok(NULL, "|");
@@ -150,7 +156,7 @@ void dump_sacct_file(sqlite3 * jobs_db, char * outfile){
 		scan_line(buffer, job);
 		
 		// error reading line
-		if (job -> user == NULL){
+		if (job -> user[0] == '\0'){
 			continue;
 		}
 
