@@ -6,7 +6,7 @@
 
 void insert_job_to_db(sqlite3 * jobs_db, Job * job){
 	char * insert_statement = "INSERT INTO Jobs"
-                        "(job_id, user_id, group_id, n_nodes, n_cpus, n_gpus, mem_mb, billing, time_limit, submit_time, node_list, start_time, end_time, elapsed_time, state, exit_code)";
+                        "(job_id, user, group, n_nodes, n_cpus, n_gpus, mem_mb, billing, time_limit, submit_time, node_list, start_time, end_time, elapsed_time, state, exit_code)";
 
     char * full_insert_statement;
 
