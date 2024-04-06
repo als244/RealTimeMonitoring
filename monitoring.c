@@ -551,8 +551,8 @@ int main(int argc, char ** argv, char * envp[]){
 	/* CREATING JOBS TABLE */
 	const char * jobs_table_creation = "CREATE TABLE IF NOT EXISTS Jobs ("
                              "job_id INT, "
-                             "user VARCHAR(10), "
-                             "group VARCHAR(20), "
+                             "user_name VARCHAR(10), "
+                             "group_name VARCHAR(20), "
                              "n_nodes INT, "
                              "n_cpus INT, "
                              "n_gpus INT, "
