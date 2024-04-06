@@ -74,16 +74,17 @@ int parse_req_tres(Job * job){
 
 
 void scan_line(char *line, Job * job)
-{
-    char * tok = strtok(line, "|");
-    if (strlen(tok) > 0){
-    	strcpy(job -> user, tok);
-    }
-    else {
-    	job -> user[0] = '\0';
-    	return;
-    }
+{	
 
+	// occurs when there is no user and shows sub-jobs
+	if (line[0] == '|'){
+		job -> user[0] = '\0';
+		return;
+	}
+
+    char * tok = strtok(line, "|");
+    strcpy(job -> user, tok);
+    
     tok = strtok(NULL, "|");
     strcpy(job -> group, tok);
 
