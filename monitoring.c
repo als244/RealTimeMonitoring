@@ -354,7 +354,7 @@ int main(int argc, char ** argv, char * envp[]){
 	int n_samples_per_buffer = 6000;
 	// deafult for Della
 	// location where the per-host databases are 
-	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/node_utilizations";
+	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/test";
 
 	
 
@@ -528,7 +528,7 @@ int main(int argc, char ** argv, char * envp[]){
 	sqlite3 *db;
 
 	char * db_filename;
-	asprintf(&db_filename, "%s/%s_metrics.db", output_dir, hostbuffer);
+	asprintf(&db_filename, "%s/%s.db", output_dir, hostbuffer);
 	
 	int sql_ret;
 	sql_ret = sqlite3_open(db_filename, &db);
