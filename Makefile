@@ -9,3 +9,5 @@ all: monitor
 monitor: monitoring.c job_stats.c
 	${CC} ${CFLAGS} -o $@ $^ -I${SQLITE3_INCLUDE_PATH} -L${SQLITE3_LIBRARY_PATH} -lsqlite3 -ldcgm -lm
 
+clean:
+	rm -f monitor *.o

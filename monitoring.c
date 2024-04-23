@@ -357,31 +357,36 @@ Interface_Names * init_interface_names(){
 	DIR *dr = opendir(interface_parent_dir);
 	if (dr == NULL) { 
         fprintf(stderr, "Could not open interface directory\n"); 
-        return -1;
+        return NULL;
     }
 
     struct dirent * interface_dirs;
-    char * host_dir_path;
-    char ** ib_ifs = (char **) malloc(16 * sizeof(char *));
+    int max_ifs;
+    char ** ib_ifs = (char **) malloc(max_ifs * sizeof(char *));
     int n_ib_ifs = 0;
-    char ** eth_ifs = (char **) malloc(16 * sizeof(char *));
+    char ** eth_ifs = (char **) malloc(max_ifs * sizeof(char *));
     int n_eth_ifs = 0;
-    while ((host_dirs = readdir(dr)) != NULL) {
-    	if (!strcmp (host_dirs->d_name, "."))
+   	
+    char * dir_name; 
+    while ((interface_dirs = readdir(dr)) != NULL) {
+    	dir_name = interface_dirs -> d_name;
+	if (!strcmp (dir_name, "."))
             continue;
-        if (!strcmp (host_dirs->d_name, ".."))    
+        if (!strcmp (dir_name, ".."))    
             continue;
    
-        if (strncmp("ib", host_dirs->d_name, 2) == 0) {
-        	ib_ifs[n_ib_ifs] = strcpy(host_dirs->d_name);
+        if (strncmp("ib", dir_name, 2) == 0) {
+        	ib_ifs[n_ib_ifs] = strdup(dir_name);
         	n_ib_ifs++;
         }
 
-        if (strncmp("eno", host_dirs->d_name, 3) == 0){
-        	eth_ifs[n_eth_ifs] = strcpy(host_dirs->d_name);
+        if (strncmp("eno", dir_name, 3) == 0){
+        	eth_ifs[n_eth_ifs] = strdup(dir_name);
         	n_eth_ifs++;
         }
     }
+
+    closedir(dr);
 
     interface_names -> n_ib_ifs = n_ib_ifs;
     interface_names -> ib_ifs = ib_ifs;

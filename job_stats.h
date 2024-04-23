@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <time.h>
 #include <getopt.h>
 #include <sys/sysinfo.h>
