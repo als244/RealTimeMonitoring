@@ -7,12 +7,19 @@ typedef struct Proc_Data {
 	long idle_time;
 } Proc_Data;
 
-typedef struct interface_names {
+typedef struct interface_totals {
 	int n_ib_ifs;
 	char ** ib_ifs;
 	int n_eth_ifs;
 	char ** eth_ifs;
-} Interface_Names;
+	// THESE ARE CUMULATIVE TOTALS
+        //      - each sample will record the difference and save most recent value
+        //      - raw values from /sys/class/net/<ifname>/statistics
+        unsigned long total_ib_rx_bytes;
+        unsigned long total_ib_tx_bytes;
+        unsigned long total_eth_rx_bytes;
+        unsigned long total_eth_tx_bytes;
+} Interface_Totals;
 
 typedef struct net_data {
 	// These are populated for the values to record in database
@@ -21,13 +28,6 @@ typedef struct net_data {
 	unsigned long ib_tx_bytes;
 	unsigned long eth_rx_bytes;
 	unsigned long eth_tx_bytes;
-	// THESE ARE CUMULATIVE TOTALS
-	//	- each sample will record the difference and save most recent value
-	// 	- raw values from /sys/class/net/<ifname>/statistics
-	unsigned long total_ib_rx_bytes;
-	unsigned long total_ib_tx_bytes;
-	unsigned long total_eth_rx_bytes;
-	unsigned long total_eth_tx_bytes;
 } Net_Data;
 
 
