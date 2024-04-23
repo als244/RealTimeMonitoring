@@ -331,8 +331,8 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 
 	long elapsed_time_ns = ((end.tv_sec - start.tv_sec) * 1e9) + (end.tv_nsec - start.tv_nsec);
 	long elapsed_time_ms = elapsed_time_ns / 1e6;
-	printf("Elasped time of dump: %lu ms\n", elapsed_time_ms);
-	fflush(stdout);
+	//printf("Elasped time of dump: %lu ms\n", elapsed_time_ms);
+	//fflush(stdout);
 
 
 	// reset samples
