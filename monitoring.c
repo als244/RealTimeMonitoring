@@ -71,6 +71,84 @@ Proc_Data * process_proc_stat(Sample * cur_sample, Proc_Data * prev_data){
 	return proc_data;
 }
 
+
+Net_Data * process_net_stat(Sample * cur_sample, Net_Data * prev_data, Interface_Names * interface_names){
+
+	Net_Data * net_data = cur_sample -> net_util;
+
+	unsigned long total_eth_rx_bytes = 0;
+	unsigned long total_eth_tx_bytes = 0;
+	unsigned long total_ib_rx_bytes = 0;
+	unsigned long total_ib_tx_bytes = 0;
+
+	FILE * net_stat_fp;
+	unsigned long cur_rx, cur_tx;
+	char * if_path;
+
+	int n_ib_ifs = interface_names -> n_ib_ifs;
+	int n_eth_ifs = interface_names -> n_eth_ifs;
+	char ** ib_ifs = interface_names -> ib_ifs;
+	char ** eth_ifs = interface_names -> eth_ifs;
+	
+	// ACCUMULATING TOTALS FOR IB IFs
+	for (int i = 0; i < n_ib_ifs; i++){
+		// RX
+		asprintf(&if_path, "/sys/class/net/%s/statistics/rx_bytes", ib_ifs[i]);
+		net_stat_fp = fopen(if_path, "r");
+		fscanf(net_stat_fp, "%lu", &cur_rx);
+		total_ib_rx_bytes += cur_rx;
+		free(if_path);
+		fclose(net_stat_fp);
+
+		// TX
+		asprintf(&if_path, "/sys/class/net/%s/statistics/tx_bytes", ib_ifs[i]);
+		net_stat_fp = fopen(if_path, "r");
+		fscanf(net_stat_fp, "%lu", &cur_tx);
+		total_ib_tx_bytes += cur_tx;
+		free(if_path);
+		fclose(net_stat_fp);
+	}
+
+	// ACCUMULATING TOTALS FOR ETH IFs
+	for (int i = 0; i < n_eth_ifs; i++){
+		// RX
+		asprintf(&if_path, "/sys/class/net/%s/statistics/rx_bytes", eth_ifs[i]);
+		net_stat_fp = fopen(if_path, "r");
+		fscanf(net_stat_fp, "%lu", &cur_rx);
+		total_eth_rx_bytes += cur_rx;
+		free(if_path);
+		fclose(net_stat_fp);
+
+		// TX
+		asprintf(&if_path, "/sys/class/net/%s/statistics/tx_bytes", eth_ifs[i]);
+		net_stat_fp = fopen(if_path, "r");
+		fscanf(net_stat_fp, "%lu", &cur_tx);
+		total_eth_tx_bytes += cur_tx;
+		free(if_path);
+		fclose(net_stat_fp);
+	}
+
+	net_data -> total_ib_rx_bytes = total_ib_rx_bytes;
+	net_data -> total_ib_tx_bytes = total_ib_tx_bytes;
+	net_data -> total_eth_rx_bytes = total_eth_rx_bytes;
+	net_data -> total_eth_tx_bytes = total_eth_tx_bytes;
+
+	if (prev_data == NULL){
+		net_data -> ib_rx_bytes = 0;
+		net_data -> ib_tx_bytes = 0;
+		net_data -> eth_rx_bytes = 0;
+		net_data -> eth_tx_bytes = 0;		
+		return net_data;
+	}
+
+	net_data -> ib_rx_bytes = net_data -> total_ib_rx_bytes - prev_data -> total_ib_rx_bytes;
+	net_data -> ib_tx_bytes = net_data -> total_ib_tx_bytes - prev_data -> total_ib_tx_bytes;
+	net_data -> eth_rx_bytes = net_data -> total_eth_rx_bytes - prev_data -> total_eth_rx_bytes;
+	net_data -> eth_tx_bytes = net_data -> total_eth_tx_bytes - prev_data -> total_eth_tx_bytes;
+
+	return net_data;
+}
+
 // GPU MONITORING
 
 // < 100 values, do not need hash table
@@ -152,6 +230,7 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 
 	// Saving Data
 	Proc_Data * cpu_data;
+	Net_Data * net_data;
 	void * fieldValues;
 	Sample data;
 
@@ -174,8 +253,23 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 
 		// CPU dump
 		cpu_data = data.cpu_util;
+		// HARDCODING FIELDS:
+		//	- 0 = free_mem
+		//	- 1 = util_pct
 		insert_sample_to_db(db, time_ns, -1, 0, cpu_data -> free_mem);
 		insert_sample_to_db(db, time_ns, -1, 1, round(cpu_data -> util_pct));
+
+		// NET dump
+		net_data = data.net_util;
+		// HARDCODING FIELDS:
+		//	- 2 = ib_rx_bytes
+		//	- 3 = ib_tx_bytes
+		//	- 4 = eth_rx_bytes
+		//	- 5 = eth_tx_bytes
+		insert_sample_to_db(db, time_ns, -1, 2, net_data -> ib_rx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 3, net_data -> ib_tx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 4, net_data -> eth_rx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 5, net_data -> eth_tx_bytes);
 		
 		// GPU Field dump
 		fieldValues = data.field_values;
@@ -252,6 +346,51 @@ void cleanup_and_exit(int error_code, dcgmHandle_t * dcgmHandle, dcgmGpuGrp_t * 
 
 }
 
+Interface_Names * init_interface_names(){
+	Interface_Names * interface_names = (Interface_Names *) malloc(sizeof(Interface_Names));
+	if (interface_names == NULL){
+		fprintf(stderr, "Could not allocate memory for interface names\n");
+		return NULL;
+	}
+
+	const char * interface_parent_dir = "/sys/class/net";
+	DIR *dr = opendir(interface_parent_dir);
+	if (dr == NULL) { 
+        fprintf(stderr, "Could not open interface directory\n"); 
+        return -1;
+    }
+
+    struct dirent * interface_dirs;
+    char * host_dir_path;
+    char ** ib_ifs = (char **) malloc(16 * sizeof(char *));
+    int n_ib_ifs = 0;
+    char ** eth_ifs = (char **) malloc(16 * sizeof(char *));
+    int n_eth_ifs = 0;
+    while ((host_dirs = readdir(dr)) != NULL) {
+    	if (!strcmp (host_dirs->d_name, "."))
+            continue;
+        if (!strcmp (host_dirs->d_name, ".."))    
+            continue;
+   
+        if (strncmp("ib", host_dirs->d_name, 2) == 0) {
+        	ib_ifs[n_ib_ifs] = strcpy(host_dirs->d_name);
+        	n_ib_ifs++;
+        }
+
+        if (strncmp("eno", host_dirs->d_name, 3) == 0){
+        	eth_ifs[n_eth_ifs] = strcpy(host_dirs->d_name);
+        	n_eth_ifs++;
+        }
+    }
+
+    interface_names -> n_ib_ifs = n_ib_ifs;
+    interface_names -> ib_ifs = ib_ifs;
+    interface_names -> n_eth_ifs = n_eth_ifs;
+    interface_names -> eth_ifs = eth_ifs;
+    
+    return interface_names;
+}
+
 
 Samples_Buffer * init_samples_buffer(int n_cpu, int clk_tck, int n_devices, int n_fields, unsigned short * field_ids, unsigned short * field_types, int max_samples){
 
@@ -281,19 +420,22 @@ Samples_Buffer * init_samples_buffer(int n_cpu, int clk_tck, int n_devices, int 
 		Sample my_sample;
 		my_sample.field_values = (void *) malloc(n_fields * n_devices * field_size_bytes);
 		my_sample.cpu_util = (Proc_Data *) malloc(sizeof(Proc_Data));
-		if ((my_sample.field_values == NULL) || (my_sample.cpu_util == NULL)){
+		my_sample.net_util = (Net_Data *) malloc(sizeof(Net_Data));
+		if ((my_sample.field_values == NULL) || (my_sample.cpu_util == NULL) || (my_sample.net_util)){
 			fprintf(stderr, "Could not allocate memory for values in samples buffer, exiting...\n");
 			return NULL;
 		}
-
 		samples[i] = my_sample;
 	}
 
 	samples_buffer -> samples = samples;
 
+	samples_buffer -> interface_names = init_interface_names();
+
 	return samples_buffer;
 
 }
+
 
 void print_usage(){
 	const char * usage_str = "Usage: [-f, --fields=<string: comma separated of field ids>] || \
@@ -523,6 +665,9 @@ int main(int argc, char ** argv, char * envp[]){
 	Proc_Data * cpu_util;
 	Proc_Data * prev_proc_data = NULL;
 
+	Net_Data * net_util;
+	Net_Data * prev_net_data = NULL;
+
 
 	/* CREATING METRICS TABLE */
 	sqlite3 *db;
@@ -601,6 +746,13 @@ int main(int argc, char ** argv, char * envp[]){
 
 		// set the previous to be current so as to accurately compute util % next time
 		prev_proc_data = cpu_util;
+
+		// COLLECT NETWORK DATA
+		net_util = process_net_stat(cur_sample, prev_net_data, samples_buffer -> interface_names);
+		cur_sample -> net_util = net_util;
+
+		// set previous to be current so as to accurately compute the rx/tx bytes window based on total
+		prev_net_data = net_util;
 
 
 		// COLLECT GPU VALUES
