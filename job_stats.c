@@ -184,5 +184,11 @@ void collect_job_stats(sqlite3 * jobs_db, char * out_dir, char * hostname, long 
 
 	free(cmd);
 	free(full_cmd);
+	
+	// remove temp file
+	if (remove(outfile) != 0){
+		fprintf(stderr, "Could not remove temp file\n");
+	}
+	
 	free(outfile);
 }
