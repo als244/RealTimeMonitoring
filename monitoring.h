@@ -45,7 +45,7 @@ typedef struct samples_buffer {
 	int n_fields;
 	unsigned short * field_ids;
 	unsigned short * field_types;
-	Interface_Names * interface_names;
+	Interface_Totals * interface_totals;
 	int max_samples;
 	int n_samples;
 	Sample * samples;
