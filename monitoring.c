@@ -456,7 +456,7 @@ Samples_Buffer * init_samples_buffer(int n_cpu, int clk_tck, int n_devices, int 
 		my_sample.field_values = (void *) malloc(n_fields * n_devices * field_size_bytes);
 		my_sample.cpu_util = (Proc_Data *) malloc(sizeof(Proc_Data));
 		my_sample.net_util = (Net_Data *) malloc(sizeof(Net_Data));
-		if ((my_sample.field_values == NULL) || (my_sample.cpu_util == NULL) || (my_sample.net_util)){
+		if ((my_sample.field_values == NULL) || (my_sample.cpu_util == NULL) || (my_sample.net_util == NULL)){
 			fprintf(stderr, "Could not allocate memory for values in samples buffer, exiting...\n");
 			return NULL;
 		}
