@@ -528,7 +528,7 @@ int main(int argc, char ** argv, char * envp[]){
 	int n_fields = 10;
 	char * field_ids_string = "203,254,1002,1003,1004,1005,1009,1010,1011,1012";
 	int sample_freq_millis = 100;
-	int n_samples_per_buffer = 6000;
+	int n_samples_per_buffer = 3000;
 	// deafult for Della
 	// location where the per-host databases are 
 	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/test";
