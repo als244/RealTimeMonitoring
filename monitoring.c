@@ -101,7 +101,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 			free(if_path);
 			continue;
 		}
-		fscanf(net_stat_fp, "%lu", &cur_rx);
+		fscanf(net_stat_fp, "%ld", &cur_rx);
 		total_ib_rx_bytes += cur_rx;
 		free(if_path);
 		fclose(net_stat_fp);
@@ -114,7 +114,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 			free(if_path);
 			continue;
 		}
-		fscanf(net_stat_fp, "%lu", &cur_tx);
+		fscanf(net_stat_fp, "%ld", &cur_tx);
 		total_ib_tx_bytes += cur_tx;
 		free(if_path);
 		fclose(net_stat_fp);
@@ -130,7 +130,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 			free(if_path);
 			continue;
 		}
-		fscanf(net_stat_fp, "%lu", &cur_rx);
+		fscanf(net_stat_fp, "%ld", &cur_rx);
 		total_eth_rx_bytes += cur_rx;
 		free(if_path);
 		fclose(net_stat_fp);
@@ -143,7 +143,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 			free(if_path);
 			continue;
 		}
-		fscanf(net_stat_fp, "%lu", &cur_tx);
+		fscanf(net_stat_fp, "%ld", &cur_tx);
 		total_eth_tx_bytes += cur_tx;
 		free(if_path);
 		fclose(net_stat_fp);
