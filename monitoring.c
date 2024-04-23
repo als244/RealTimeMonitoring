@@ -72,7 +72,7 @@ Proc_Data * process_proc_stat(Sample * cur_sample, Proc_Data * prev_data){
 }
 
 
-Net_Data * process_net_stat(Sample * cur_sample, Net_Data * prev_data, Interface_Names * interface_names){
+Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_totals){
 
 	Net_Data * net_data = cur_sample -> net_util;
 
@@ -85,16 +85,22 @@ Net_Data * process_net_stat(Sample * cur_sample, Net_Data * prev_data, Interface
 	unsigned long cur_rx, cur_tx;
 	char * if_path;
 
-	int n_ib_ifs = interface_names -> n_ib_ifs;
-	int n_eth_ifs = interface_names -> n_eth_ifs;
-	char ** ib_ifs = interface_names -> ib_ifs;
-	char ** eth_ifs = interface_names -> eth_ifs;
+	int n_ib_ifs = interface_totals -> n_ib_ifs;
+	int n_eth_ifs = interface_totals -> n_eth_ifs;
+	char ** ib_ifs = interface_totals -> ib_ifs;
+	char ** eth_ifs = interface_totals -> eth_ifs;
 	
 	// ACCUMULATING TOTALS FOR IB IFs
 	for (int i = 0; i < n_ib_ifs; i++){
 		// RX
 		asprintf(&if_path, "/sys/class/net/%s/statistics/rx_bytes", ib_ifs[i]);
 		net_stat_fp = fopen(if_path, "r");
+		// error couldn't read file
+		if (net_stat_fp == NULL){
+			fprintf(stderr, "Error: couldn't read rx_bytes at file: %s\n", if_path);
+			free(if_path);
+			continue;
+		}
 		fscanf(net_stat_fp, "%lu", &cur_rx);
 		total_ib_rx_bytes += cur_rx;
 		free(if_path);
@@ -103,6 +109,11 @@ Net_Data * process_net_stat(Sample * cur_sample, Net_Data * prev_data, Interface
 		// TX
 		asprintf(&if_path, "/sys/class/net/%s/statistics/tx_bytes", ib_ifs[i]);
 		net_stat_fp = fopen(if_path, "r");
+		// error couldn't read file
+		if (net_stat_fp == NULL){
+			free(if_path);
+			continue;
+		}
 		fscanf(net_stat_fp, "%lu", &cur_tx);
 		total_ib_tx_bytes += cur_tx;
 		free(if_path);
@@ -114,6 +125,11 @@ Net_Data * process_net_stat(Sample * cur_sample, Net_Data * prev_data, Interface
 		// RX
 		asprintf(&if_path, "/sys/class/net/%s/statistics/rx_bytes", eth_ifs[i]);
 		net_stat_fp = fopen(if_path, "r");
+		// error couldn't read file
+		if (net_stat_fp == NULL){
+			free(if_path);
+			continue;
+		}
 		fscanf(net_stat_fp, "%lu", &cur_rx);
 		total_eth_rx_bytes += cur_rx;
 		free(if_path);
@@ -122,29 +138,38 @@ Net_Data * process_net_stat(Sample * cur_sample, Net_Data * prev_data, Interface
 		// TX
 		asprintf(&if_path, "/sys/class/net/%s/statistics/tx_bytes", eth_ifs[i]);
 		net_stat_fp = fopen(if_path, "r");
+		// error couldn't read file
+		if (net_stat_fp == NULL){
+			free(if_path);
+			continue;
+		}
 		fscanf(net_stat_fp, "%lu", &cur_tx);
 		total_eth_tx_bytes += cur_tx;
 		free(if_path);
 		fclose(net_stat_fp);
 	}
 
-	net_data -> total_ib_rx_bytes = total_ib_rx_bytes;
-	net_data -> total_ib_tx_bytes = total_ib_tx_bytes;
-	net_data -> total_eth_rx_bytes = total_eth_rx_bytes;
-	net_data -> total_eth_tx_bytes = total_eth_tx_bytes;
 
-	if (prev_data == NULL){
+
+	// Taking these totals minus prev recorded totals
+	net_data -> ib_rx_bytes = total_ib_rx_bytes - interface_totals -> total_ib_rx_bytes;
+	net_data -> ib_tx_bytes = total_ib_tx_bytes - interface_totals -> total_ib_tx_bytes;
+	net_data -> eth_rx_bytes = total_eth_rx_bytes - interface_totals -> total_eth_rx_bytes;
+	net_data -> eth_tx_bytes = total_eth_tx_bytes - interface_totals -> total_eth_tx_bytes;
+
+	// Special case for the first time we don't want to have outlier results
+	if (interface_totals -> total_ib_rx_bytes == 0){
 		net_data -> ib_rx_bytes = 0;
 		net_data -> ib_tx_bytes = 0;
 		net_data -> eth_rx_bytes = 0;
-		net_data -> eth_tx_bytes = 0;		
-		return net_data;
+		net_data -> eth_tx_bytes = 0;
 	}
 
-	net_data -> ib_rx_bytes = net_data -> total_ib_rx_bytes - prev_data -> total_ib_rx_bytes;
-	net_data -> ib_tx_bytes = net_data -> total_ib_tx_bytes - prev_data -> total_ib_tx_bytes;
-	net_data -> eth_rx_bytes = net_data -> total_eth_rx_bytes - prev_data -> total_eth_rx_bytes;
-	net_data -> eth_tx_bytes = net_data -> total_eth_tx_bytes - prev_data -> total_eth_tx_bytes;
+	// Update new totals
+	interface_totals -> total_ib_rx_bytes = total_ib_rx_bytes;
+	interface_totals -> total_ib_tx_bytes = total_ib_tx_bytes;
+	interface_totals -> total_eth_rx_bytes = total_eth_rx_bytes;
+	interface_totals -> total_eth_tx_bytes = total_eth_tx_bytes;
 
 	return net_data;
 }
@@ -346,9 +371,9 @@ void cleanup_and_exit(int error_code, dcgmHandle_t * dcgmHandle, dcgmGpuGrp_t * 
 
 }
 
-Interface_Names * init_interface_names(){
-	Interface_Names * interface_names = (Interface_Names *) malloc(sizeof(Interface_Names));
-	if (interface_names == NULL){
+Interface_Totals * init_interface_totals(){
+	Interface_Totals * interface_totals = (Interface_Totals *) malloc(sizeof(Interface_Totals));
+	if (interface_totals == NULL){
 		fprintf(stderr, "Could not allocate memory for interface names\n");
 		return NULL;
 	}
@@ -388,12 +413,17 @@ Interface_Names * init_interface_names(){
 
     closedir(dr);
 
-    interface_names -> n_ib_ifs = n_ib_ifs;
-    interface_names -> ib_ifs = ib_ifs;
-    interface_names -> n_eth_ifs = n_eth_ifs;
-    interface_names -> eth_ifs = eth_ifs;
+    interface_totals -> n_ib_ifs = n_ib_ifs;
+    interface_totals -> ib_ifs = ib_ifs;
+    interface_totals -> n_eth_ifs = n_eth_ifs;
+    interface_totals -> eth_ifs = eth_ifs;
+
+    interface_totals -> total_ib_rx_bytes = 0;
+    interface_totals -> total_ib_tx_bytes = 0;
+    interface_totals -> total_eth_rx_bytes = 0;
+    interface_totals -> total_eth_tx_bytes = 0;
     
-    return interface_names;
+    return interface_totals;
 }
 
 
@@ -435,7 +465,7 @@ Samples_Buffer * init_samples_buffer(int n_cpu, int clk_tck, int n_devices, int 
 
 	samples_buffer -> samples = samples;
 
-	samples_buffer -> interface_names = init_interface_names();
+	samples_buffer -> interface_totals = init_interface_totals();
 
 	return samples_buffer;
 
@@ -671,7 +701,6 @@ int main(int argc, char ** argv, char * envp[]){
 	Proc_Data * prev_proc_data = NULL;
 
 	Net_Data * net_util;
-	Net_Data * prev_net_data = NULL;
 
 
 	/* CREATING METRICS TABLE */
@@ -753,12 +782,8 @@ int main(int argc, char ** argv, char * envp[]){
 		prev_proc_data = cpu_util;
 
 		// COLLECT NETWORK DATA
-		net_util = process_net_stat(cur_sample, prev_net_data, samples_buffer -> interface_names);
+		net_util = process_net_stat(cur_sample, samples_buffer -> interface_totals);
 		cur_sample -> net_util = net_util;
-
-		// set previous to be current so as to accurately compute the rx/tx bytes window based on total
-		prev_net_data = net_util;
-
 
 		// COLLECT GPU VALUES
 		
