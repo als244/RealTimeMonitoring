@@ -76,13 +76,13 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 
 	Net_Data * net_data = cur_sample -> net_util;
 
-	unsigned long total_eth_rx_bytes = 0;
-	unsigned long total_eth_tx_bytes = 0;
-	unsigned long total_ib_rx_bytes = 0;
-	unsigned long total_ib_tx_bytes = 0;
+	long total_eth_rx_bytes = 0;
+	long total_eth_tx_bytes = 0;
+	long total_ib_rx_bytes = 0;
+	long total_ib_tx_bytes = 0;
 
 	FILE * net_stat_fp;
-	unsigned long cur_rx, cur_tx;
+	long cur_rx, cur_tx;
 	char * if_path;
 
 	int n_ib_ifs = interface_totals -> n_ib_ifs;

@@ -13,21 +13,21 @@ typedef struct interface_totals {
 	int n_eth_ifs;
 	char ** eth_ifs;
 	// THESE ARE CUMULATIVE TOTALS
-        //      - each sample will record the difference and save most recent value
-        //      - raw values from /sys/class/net/<ifname>/statistics
-        unsigned long total_ib_rx_bytes;
-        unsigned long total_ib_tx_bytes;
-        unsigned long total_eth_rx_bytes;
-        unsigned long total_eth_tx_bytes;
+	//      - each sample will record the difference and save most recent value
+	//      - raw values from /sys/class/net/<ifname>/statistics
+	long total_ib_rx_bytes;
+	long total_ib_tx_bytes;
+	long total_eth_rx_bytes;
+	long total_eth_tx_bytes;
 } Interface_Totals;
 
 typedef struct net_data {
 	// These are populated for the values to record in database
 	//	- calculated from difference of this total - prev total
-	unsigned long ib_rx_bytes;
-	unsigned long ib_tx_bytes;
-	unsigned long eth_rx_bytes;
-	unsigned long eth_tx_bytes;
+	long ib_rx_bytes;
+	long ib_tx_bytes;
+	long eth_rx_bytes;
+	long eth_tx_bytes;
 } Net_Data;
 
 
