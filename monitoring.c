@@ -386,7 +386,7 @@ Interface_Totals * init_interface_totals(){
     }
 
     struct dirent * interface_dirs;
-    int max_ifs;
+    int max_ifs = 16;
     char ** ib_ifs = (char **) malloc(max_ifs * sizeof(char *));
     int n_ib_ifs = 0;
     char ** eth_ifs = (char **) malloc(max_ifs * sizeof(char *));
