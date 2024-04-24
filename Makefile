@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g3 -std=c99 -pedantic -Wall
+CFLAGS = -o2 -std=c99 -Wall -pedantic
 
 SQLITE3_LIBRARY_PATH = /home/as1669/local/lib
 SQLITE3_INCLUDE_PATH = /home/as1669/local/include
