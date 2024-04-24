@@ -1,6 +1,7 @@
 
 typedef struct Proc_Data {
-	unsigned long free_mem;
+	long free_mem;
+	double mem_used_pct;
 	double util_pct;
 	// will be used to compute the next util_pct
 	long total_time;

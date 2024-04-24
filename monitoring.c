@@ -23,11 +23,14 @@ Proc_Data * process_proc_stat(Sample * cur_sample, Proc_Data * prev_data){
 
 	Proc_Data * proc_data = cur_sample -> cpu_util;
 
-	// query available host memory
-	// in MB
-	unsigned long free_mem = (unsigned long) (get_avphys_pages() * sysconf(_SC_PAGESIZE)) / 1e6;
+	// QUERY MEMORY INFO
+	long avail_pages = sysconf(_SC_AVPHYS_PAGES);
+	long total_pages = sysconf(_SC_PHYS_PAGES);
+	proc_data -> mem_used_pct = 100 * ((double) (total_pages - avail_pages) / (double) total_pages);
+	long page_size = sysconf(_SC_PAGESIZE);
+	long free_mem_mb = (avail_pages * page_size) / (1 << 20);
 	proc_data -> free_mem = free_mem;
-
+	
 	// only collecting aggregate 
 	Cpu_stat cpu_stats;
 
@@ -281,8 +284,9 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 		// HARDCODING FIELDS:
 		//	- 0 = free_mem
 		//	- 1 = util_pct
-		insert_sample_to_db(db, time_ns, -1, 0, cpu_data -> free_mem);
-		insert_sample_to_db(db, time_ns, -1, 1, round(cpu_data -> util_pct));
+		insert_sample_to_db(db, time_ns, -1, 1, round(cpu_data -> mem_used_pct));
+		insert_sample_to_db(db, time_ns, -1, 2, cpu_data -> free_mem);
+		insert_sample_to_db(db, time_ns, -1, 3, round(cpu_data -> util_pct));
 
 		// NET dump
 		net_data = data.net_util;
@@ -291,10 +295,10 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 		//	- 3 = ib_tx_bytes
 		//	- 4 = eth_rx_bytes
 		//	- 5 = eth_tx_bytes
-		insert_sample_to_db(db, time_ns, -1, 2, net_data -> ib_rx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 3, net_data -> ib_tx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 4, net_data -> eth_rx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 5, net_data -> eth_tx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 10, net_data -> ib_rx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 11, net_data -> ib_tx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 12, net_data -> eth_rx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 13, net_data -> eth_tx_bytes);
 		
 		// GPU Field dump
 		fieldValues = data.field_values;
