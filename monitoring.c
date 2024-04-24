@@ -29,7 +29,7 @@ Proc_Data * process_proc_stat(Sample * cur_sample, Proc_Data * prev_data){
 	proc_data -> mem_used_pct = 100 * ((double) (total_pages - avail_pages) / (double) total_pages);
 	long page_size = sysconf(_SC_PAGESIZE);
 	long free_mem_mb = (avail_pages * page_size) / (1 << 20);
-	proc_data -> free_mem = free_mem;
+	proc_data -> free_mem = free_mem_mb;
 	
 	// only collecting aggregate 
 	Cpu_stat cpu_stats;
