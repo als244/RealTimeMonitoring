@@ -535,7 +535,7 @@ int main(int argc, char ** argv, char * envp[]){
 	int n_samples_per_buffer = 3000;
 	// deafult for Della
 	// location where the per-host databases are 
-	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/test/nodes";
+	char * output_dir = "/scratch/gpfs/as1669/ClusterMonitoring/data/test";
 
 	
 
@@ -715,12 +715,11 @@ int main(int argc, char ** argv, char * envp[]){
 	
 	int sql_ret;
 	sql_ret = sqlite3_open(db_filename, &db);
-	free(db_filename);
-
 	if (sql_ret != SQLITE_OK){
-		fprintf(stderr, "COULD NOT OPEN SQL DB, Exiting...\n");
+		fprintf(stderr, "COULD NOT OPEN SQL DB at filepath: %s. Exiting...\n", db_filename);
 		cleanup_and_exit(-1, &dcgmHandle, &groupId, &fieldGroupId);
 	}
+	free(db_filename);
 
 	char * create_table_cmd = "CREATE TABLE IF NOT EXISTS Data (timestamp INT, device_id INT, field_id INT, value INT);";
 	char * sqlErr;
