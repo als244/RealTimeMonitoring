@@ -96,7 +96,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	// ACCUMULATING TOTALS FOR IB IFs
 	for (int i = 0; i < n_ib_ifs; i++){
 		// RX
-		asprintf(&if_path, "/sys/class/net/%s/statistics/rx_bytes", ib_ifs[i]);
+		asprintf(&if_path, "/sys/class/net/%s/phy_stats/rx_bytes", ib_ifs[i]);
 		net_stat_fp = fopen(if_path, "r");
 		// error couldn't read file
 		if (net_stat_fp == NULL){
@@ -110,7 +110,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 		fclose(net_stat_fp);
 
 		// TX
-		asprintf(&if_path, "/sys/class/net/%s/statistics/tx_bytes", ib_ifs[i]);
+		asprintf(&if_path, "/sys/class/net/%s/phy_stats/tx_bytes", ib_ifs[i]);
 		net_stat_fp = fopen(if_path, "r");
 		// error couldn't read file
 		if (net_stat_fp == NULL){
