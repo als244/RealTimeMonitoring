@@ -18,6 +18,8 @@ typedef struct interface_totals {
 	//      - raw values from /sys/class/net/<ifname>/statistics
 	long total_ib_rx_bytes;
 	long total_ib_tx_bytes;
+	long total_ib_sys_rx_bytes;
+	long total_ib_sys_tx_bytes;
 	long total_eth_rx_bytes;
 	long total_eth_tx_bytes;
 } Interface_Totals;
@@ -27,6 +29,8 @@ typedef struct net_data {
 	//	- calculated from difference of this total - prev total
 	long ib_rx_bytes;
 	long ib_tx_bytes;
+	long ib_sys_rx_bytes;
+	long ib_sys_tx_bytes;
 	long eth_rx_bytes;
 	long eth_tx_bytes;
 } Net_Data;

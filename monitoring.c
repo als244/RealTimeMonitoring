@@ -79,10 +79,13 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 
 	Net_Data * net_data = cur_sample -> net_util;
 
-	long total_eth_rx_bytes = 0;
-	long total_eth_tx_bytes = 0;
 	long total_ib_rx_bytes = 0;
 	long total_ib_tx_bytes = 0;
+	long total_ib_sys_rx_bytes = 0;
+	long total_ib_sys_tx_bytes = 0;
+	long total_eth_rx_bytes = 0;
+	long total_eth_tx_bytes = 0;
+	
 
 	FILE * net_stat_fp;
 	long cur_rx, cur_tx;
@@ -94,6 +97,8 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	char ** eth_ifs = interface_totals -> eth_ifs;
 	
 	// ACCUMULATING TOTALS FOR IB IFs
+
+	// ALL PHYS TRAFFIC (including RDMA)
 	for (int i = 0; i < n_ib_ifs; i++){
 		// RX
 		asprintf(&if_path, "/sys/class/net/%s/phy_stats/rx_bytes", ib_ifs[i]);
@@ -122,6 +127,38 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 		free(if_path);
 		fclose(net_stat_fp);
 	}
+
+	// IB Traffic passing through system memory
+	for (int i = 0; i < n_ib_ifs; i++){
+		// RX
+		asprintf(&if_path, "/sys/class/net/%s/statistics/rx_bytes", ib_ifs[i]);
+		net_stat_fp = fopen(if_path, "r");
+		// error couldn't read file
+		if (net_stat_fp == NULL){
+			fprintf(stderr, "Error: couldn't read rx_bytes at file: %s\n", if_path);
+			free(if_path);
+			continue;
+		}
+		fscanf(net_stat_fp, "%ld", &cur_rx);
+		total_ib_sys_rx_bytes += cur_rx;
+		free(if_path);
+		fclose(net_stat_fp);
+
+		// TX
+		asprintf(&if_path, "/sys/class/net/%s/statistics/tx_bytes", ib_ifs[i]);
+		net_stat_fp = fopen(if_path, "r");
+		// error couldn't read file
+		if (net_stat_fp == NULL){
+			free(if_path);
+			continue;
+		}
+		fscanf(net_stat_fp, "%ld", &cur_tx);
+		total_ib_sys_tx_bytes += cur_tx;
+		free(if_path);
+		fclose(net_stat_fp);
+	}
+
+
 
 	// ACCUMULATING TOTALS FOR ETH IFs
 	for (int i = 0; i < n_eth_ifs; i++){
@@ -157,6 +194,8 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	// Taking these totals minus prev recorded totals
 	net_data -> ib_rx_bytes = total_ib_rx_bytes - interface_totals -> total_ib_rx_bytes;
 	net_data -> ib_tx_bytes = total_ib_tx_bytes - interface_totals -> total_ib_tx_bytes;
+	net_data -> ib_sys_rx_bytes = total_ib_sys_rx_bytes - interface_totals -> total_ib_sys_rx_bytes;
+	net_data -> ib_sys_tx_bytes = total_ib_sys_tx_bytes - interface_totals -> total_ib_sys_tx_bytes;
 	net_data -> eth_rx_bytes = total_eth_rx_bytes - interface_totals -> total_eth_rx_bytes;
 	net_data -> eth_tx_bytes = total_eth_tx_bytes - interface_totals -> total_eth_tx_bytes;
 
@@ -164,6 +203,8 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	if (interface_totals -> total_ib_rx_bytes == 0){
 		net_data -> ib_rx_bytes = 0;
 		net_data -> ib_tx_bytes = 0;
+		net_data -> ib_sys_rx_bytes = 0;
+		net_data -> ib_sys_tx_bytes = 0;
 		net_data -> eth_rx_bytes = 0;
 		net_data -> eth_tx_bytes = 0;
 	}
@@ -171,6 +212,8 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	// Update new totals
 	interface_totals -> total_ib_rx_bytes = total_ib_rx_bytes;
 	interface_totals -> total_ib_tx_bytes = total_ib_tx_bytes;
+	interface_totals -> total_ib_sys_rx_bytes = total_ib_sys_rx_bytes;
+	interface_totals -> total_ib_sys_tx_bytes = total_ib_sys_tx_bytes;
 	interface_totals -> total_eth_rx_bytes = total_eth_rx_bytes;
 	interface_totals -> total_eth_tx_bytes = total_eth_tx_bytes;
 
@@ -297,8 +340,10 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 		//	- 5 = eth_tx_bytes
 		insert_sample_to_db(db, time_ns, -1, 10, net_data -> ib_rx_bytes);
 		insert_sample_to_db(db, time_ns, -1, 11, net_data -> ib_tx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 12, net_data -> eth_rx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 13, net_data -> eth_tx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 12, net_data -> ib_sys_rx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 13, net_data -> ib_sys_tx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 14, net_data -> eth_rx_bytes);
+		insert_sample_to_db(db, time_ns, -1, 15, net_data -> eth_tx_bytes);
 		
 		// GPU Field dump
 		fieldValues = data.field_values;
@@ -424,6 +469,8 @@ Interface_Totals * init_interface_totals(){
 
     interface_totals -> total_ib_rx_bytes = 0;
     interface_totals -> total_ib_tx_bytes = 0;
+    interface_totals -> total_ib_sys_rx_bytes = 0;
+	interface_totals -> total_ib_sys_tx_bytes = 0;
     interface_totals -> total_eth_rx_bytes = 0;
     interface_totals -> total_eth_tx_bytes = 0;
     
