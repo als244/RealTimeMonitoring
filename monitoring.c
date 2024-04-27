@@ -101,7 +101,8 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	// ALL PHYS TRAFFIC (including RDMA)
 	for (int i = 0; i < n_ib_ifs; i++){
 		// RX
-		asprintf(&if_path, "/sys/class/net/%s/phy_stats/rx_bytes", ib_ifs[i]);
+		// ib_ifs[i] + 2 because we need to get the numerical port for ib device
+		asprintf(&if_path, "/sys/class/net/%s/device/infiniband/mlx5_%s/ports/1/counters/port_recv_data", ib_ifs[i], ib_ifs[i] + 2);
 		net_stat_fp = fopen(if_path, "r");
 		// error couldn't read file
 		if (net_stat_fp == NULL){
@@ -110,12 +111,13 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 			continue;
 		}
 		fscanf(net_stat_fp, "%ld", &cur_rx);
-		total_ib_rx_bytes += cur_rx;
+		// need to multiply by 4 because port_recv_data is divided by 4
+		total_ib_rx_bytes += 4 * cur_rx;
 		free(if_path);
 		fclose(net_stat_fp);
 
 		// TX
-		asprintf(&if_path, "/sys/class/net/%s/phy_stats/tx_bytes", ib_ifs[i]);
+		asprintf(&if_path, "/sys/class/net/%s/device/infiniband/mlx5_%s/ports/1/counters/port_xmit_data", ib_ifs[i], ib_ifs[i] + 2);
 		net_stat_fp = fopen(if_path, "r");
 		// error couldn't read file
 		if (net_stat_fp == NULL){
@@ -123,7 +125,8 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 			continue;
 		}
 		fscanf(net_stat_fp, "%ld", &cur_tx);
-		total_ib_tx_bytes += cur_tx;
+		// need to multiply by 4 because port_xmit_data is divided by 4
+		total_ib_tx_bytes += 4 * cur_tx;
 		free(if_path);
 		fclose(net_stat_fp);
 	}
@@ -452,6 +455,7 @@ Interface_Totals * init_interface_totals(){
         if (strncmp("ib", dir_name, 2) == 0) {
         	ib_ifs[n_ib_ifs] = strdup(dir_name);
         	n_ib_ifs++;
+
         }
 
         if (strncmp("eno", dir_name, 3) == 0){
