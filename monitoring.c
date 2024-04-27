@@ -102,7 +102,7 @@ Net_Data * process_net_stat(Sample * cur_sample, Interface_Totals * interface_to
 	for (int i = 0; i < n_ib_ifs; i++){
 		// RX
 		// ib_ifs[i] + 2 because we need to get the numerical port for ib device
-		asprintf(&if_path, "/sys/class/net/%s/device/infiniband/mlx5_%s/ports/1/counters/port_recv_data", ib_ifs[i], ib_ifs[i] + 2);
+		asprintf(&if_path, "/sys/class/net/%s/device/infiniband/mlx5_%s/ports/1/counters/port_rcv_data", ib_ifs[i], ib_ifs[i] + 2);
 		net_stat_fp = fopen(if_path, "r");
 		// error couldn't read file
 		if (net_stat_fp == NULL){
