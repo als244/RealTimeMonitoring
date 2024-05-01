@@ -345,8 +345,9 @@ int dump_samples_buffer(Samples_Buffer * samples_buffer, sqlite3 * db){
 		insert_sample_to_db(db, time_ns, -1, 11, net_data -> ib_tx_bytes);
 		insert_sample_to_db(db, time_ns, -1, 12, net_data -> ib_sys_rx_bytes);
 		insert_sample_to_db(db, time_ns, -1, 13, net_data -> ib_sys_tx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 14, net_data -> eth_rx_bytes);
-		insert_sample_to_db(db, time_ns, -1, 15, net_data -> eth_tx_bytes);
+		// SAVE DB SPACE BY NOT STORING ETH DATA. PRETTY MUCH NEVER USED
+		//insert_sample_to_db(db, time_ns, -1, 14, net_data -> eth_rx_bytes);
+		//insert_sample_to_db(db, time_ns, -1, 15, net_data -> eth_tx_bytes);
 		
 		// GPU Field dump
 		fieldValues = data.field_values;
