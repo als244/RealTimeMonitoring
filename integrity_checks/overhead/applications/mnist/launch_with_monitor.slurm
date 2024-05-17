@@ -1,0 +1,26 @@
+#!/bin/bash
+#SBATCH --nodes=1       # one node
+#SBATCH --ntasks=1      # numer of tasks across all nodes
+#SBATCH --cpus-per-task=8       # cpu cores per task
+#SBATCH --gres=gpu:1    # numer of requested GPUS
+#SBATCH --mem=80GB	# requested system RAM
+#SBATCH --constraint=gpu80	# ensure A100 80GB is used for all timings
+# set stdout and stderr
+#SBATCH --output=logs/with_monitor_%x_%j.out
+#SBATCH --error=logs/with_monitor_%x_%j.err
+#SBATCH --export=ALL
+
+# send mail
+#SBATCH --mail-type=all
+#SBATCH --mail-user=as1669@princeton.edu
+#
+
+# Call the program
+## first launch monitor
+/home/as1669/RealTimeMonitoring/monitor
+
+## set env variable so timing can be saved in appropriate file
+export WITH_MONITOR=1
+
+## now launch application
+python mnist_train.py
