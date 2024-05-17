@@ -141,9 +141,11 @@ def main():
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     
-    ## ADDING START / END TIMES
-    num_cpus = os.environ["NUM_CPUS_ALLOCED"]
-
+    ## CHECKING ENV VARIABLES THAT SHOULD BE SET
+    num_cpus = int(os.environ["NUM_CPUS"])
+    is_with_monitor = int(os.environ["WITH_MONITOR"]) == 1
+    
+    ## DOING TIMINGS BY WRAPPING TRAINING LOOP
     start = time.time_ns()
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
@@ -154,7 +156,6 @@ def main():
     ## SAVING TIMING RESULTS
     elapsed_ns = end - start
     
-    is_with_monitor = "WITH_MONITOR" in os.environ
     if is_with_monitor:
         out_filename = "./timings/with_monitor.csv"
     else:
