@@ -813,6 +813,9 @@ int main(int argc, char ** argv, char * envp[]){
 	
 	long time_sec;
         long prev_job_collection_time = 0;
+	
+	struct timespec iter_end;
+
 
 	// For now, run indefinitely 
 	while (true){
@@ -912,6 +915,15 @@ int main(int argc, char ** argv, char * envp[]){
 			}
 			samples_buffer -> n_samples = 0;
 		}
+
+
+                //clock_gettime(CLOCK_REALTIME, &iter_end);
+
+		//long start_timestamp = time.tv_sec * 1e9 + time.tv_nsec;
+		//long end_timestamp = iter_end.tv_sec * 1e9 + iter_end.tv_nsec;
+		//long elapsed_time_ns = end_timestamp - start_timestamp;
+		//printf("%ld,%d,%ld,%ld\n", elapsed_time_ns, n_samples, start_timestamp, end_timestamp);
+
 		usleep(update_freq_micros);
 	}
 
