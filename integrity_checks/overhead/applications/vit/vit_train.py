@@ -9,6 +9,10 @@ import numpy as np
 from torch.hub import tqdm
 
 
+## MODIFIED TO TIME CORRECTLY
+import os
+import time
+
 class PatchExtractor(nn.Module):
     def __init__(self, patch_size=16):
         super().__init__()
@@ -140,8 +144,13 @@ class TrainEval:
         self.model.train()
         total_loss = 0.0
         tk = tqdm(self.train_dataloader, desc="EPOCH" + "[TRAIN]" + str(current_epoch + 1) + "/" + str(self.epoch))
+    
+        iter_timings = []
 
         for t, data in enumerate(tk):
+            
+            iter_start = time.time_ns()
+            
             images, labels = data
             images, labels = images.to(self.device), labels.to(self.device)
             self.optimizer.zero_grad()
@@ -155,7 +164,11 @@ class TrainEval:
             if self.args.dry_run:
                 break
 
-        return total_loss / len(self.train_dataloader)
+            iter_end = time.time_ns()
+            iter_timings.append((iter_end - iter_start, iter_start, iter_end))
+
+
+        return total_loss / len(self.train_dataloader), iter_timings
 
     def eval_fn(self, current_epoch):
         self.model.eval()
@@ -179,17 +192,51 @@ class TrainEval:
     def train(self):
         best_valid_loss = np.inf
         best_train_loss = np.inf
-        for i in range(self.epoch):
-            train_loss = self.train_fn(i)
-            val_loss = self.eval_fn(i)
+        
+        if "NUM_CPUS" not in os.environ or "WITH_MONITOR" not in os.environ:
+            print("ERROR: Both 'NUM_CPUS' and 'WITH_MONITOR' env. variables need to be set")
+            exit(1)
 
-            if val_loss < best_valid_loss:
-                torch.save(self.model.state_dict(), "best-weights.pt")
-                print("Saved Best Weights")
-                best_valid_loss = val_loss
-                best_train_loss = train_loss
+        num_cpus = int(os.environ["NUM_CPUS"])
+        is_with_monitor = int(os.environ["WITH_MONITOR"]) == 1
+
+
+        # DOING TIMINGS AROUND TRAINING LOOP
+
+        epoch_timings = {}
+        total_start = time.time_ns()
+        for i in range(self.epoch):
+            train_loss, iter_timings = self.train_fn(i)
+            epoch_timings[i] = iter_timings
+
+        total_end = time.time_ns()
+        
         print(f"Training Loss : {best_train_loss}")
         print(f"Valid Loss : {best_valid_loss}")
+
+
+        total_elapsed_ns = total_end - total_start
+
+        if is_with_monitor:
+            out_filename = "./timings/with_monitor.csv"
+        else:
+            out_filename = "./timings/raw.csv"
+
+        nodename = os.uname()[1]
+
+        ## SAVE each iteration timing data
+        for i in range(self.epoch):
+            iter_timings = epoch_timings[i]
+            for iter_num in range(len(iter_timings)):
+                iter_elapsed_ns, iter_start, iter_end = iter_timings[iter_num]
+                with open(out_filename, "a+") as out_file:
+                    out_file.write(str(i) + "," + str(iter_num) + "," + str(iter_elapsed_ns) + "," + str(iter_start) + "," + str(iter_end) + "," + nodename + "," + str(num_cpus) + "\n")
+
+        ## SAVE End to End timing
+        with open(out_filename, "a+") as out_file:
+            ## set -1 for epoch num and -1 for iter num to signal end-to-end timing
+            out_file.write("-1,-1," + str(total_elapsed_ns) + "," + str(total_start) + "," + str(total_end) + "," + nodename + "," + str(num_cpus) + "\n")
+
 
     '''
         On default settings:
@@ -227,14 +274,16 @@ def main():
                         help='image size to be reshaped to (default : 224')
     parser.add_argument('--num-classes', type=int, default=10,
                         help='number of classes in dataset (default : 10 for CIFAR10)')
-    parser.add_argument('--epochs', type=int, default=10,
-                        help='number of epochs (default : 10)')
+    ## MODIFIED DEFAULT EPOCHS TO 2 (~ 12 min)
+    parser.add_argument('--epochs', type=int, default=2,
+                        help='number of epochs (default : 2)')
     parser.add_argument('--lr', type=float, default=1e-2,
                         help='base learning rate (default : 0.01)')
     parser.add_argument('--weight-decay', type=int, default=3e-2,
                         help='weight decay value (default : 0.03)')
-    parser.add_argument('--batch-size', type=int, default=4,
-                        help='batch size (default : 4)')
+    ## MODIFIED DEFAULT BATCH SIZE TO 250 (~ 52 GB)
+    parser.add_argument('--batch-size', type=int, default=250,
+                        help='batch size (default : 250)')
     parser.add_argument('--dry-run', action='store_true', default=False,
                         help='quickly check a single pass')
     args = parser.parse_args()
@@ -246,8 +295,10 @@ def main():
         Resize((args.img_size, args.img_size)),
         ToTensor()
     ])
-    train_data = torchvision.datasets.CIFAR10(root='./dataset', train=True, download=True, transform=transforms)
-    valid_data = torchvision.datasets.CIFAR10(root='./dataset', train=False, download=True, transform=transforms)
+
+    ## MODIFIED TO NOT DOWNLOAD. ALREADY DOWNLOADED THE DATA FROM FIRST-RUN ON HEAD-NODE
+    train_data = torchvision.datasets.CIFAR10(root='./data', train=True, download=False, transform=transforms)
+    valid_data = torchvision.datasets.CIFAR10(root='./data', train=False, download=False, transform=transforms)
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
     valid_loader = DataLoader(valid_data, batch_size=args.batch_size, shuffle=True)
 
